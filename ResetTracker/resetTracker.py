@@ -81,7 +81,10 @@ if __name__ == "__main__":
 
     try:
         while live:
-            val = input("")
+            try:
+                val = input("")
+            except:
+                val = ""
             if (val == "help") or (val == "?"):
                 print("there is literally one other command and it's quit")
             if (val == "stop") or (val == "quit"):
