@@ -1,0 +1,4 @@
+watchdog==2.0.2
+gspread==3.7.0
+pywin32==300; platform_system == "Windows"
+AppKit==0.2.8; platform_system == "Darwin"
