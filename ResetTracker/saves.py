@@ -58,13 +58,13 @@ class Saves(FileSystemEventHandler):
         if not event.is_directory:
             return
         if self.last_world_path == event.src_path or sys.platform.startswith("win32"):
-						try:
-								self.world.set_world(event.src_path)
-								self.world_id += 1
-								self.loading_world = True
-								self.update_values({"world created": time_ns() // 1000000})
-						except:
-								pass
+            try:
+                self.world.set_world(event.src_path)
+                self.world_id += 1
+                self.loading_world = True
+                self.update_values({"world created": time_ns() // 1000000})
+            except:
+                pass
         else:
             self.last_world_path = event.src_path
 
