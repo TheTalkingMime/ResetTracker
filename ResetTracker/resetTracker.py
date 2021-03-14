@@ -141,6 +141,9 @@ if __name__ == '__main__':
 			print("specified credentials file does not exist!")
 			sys.exit(2)
 
+	with credentials_file.open("r") as f:
+		client_email = json.load(f)["client_email"]
+
 	if sheet_link == None:
 		# see if we have a saved sheet
 		if options.has("sheet"):
@@ -148,7 +151,7 @@ if __name__ == '__main__':
 		# ask the user for the sheet as a last restort
 		while sheet_link == None or not sheet.set_sheet(sheet_link):
 			sheet_link = options.set("sheet", input(
-				"what is the sheet that will be used for the calcualtions: \n> "))
+				"what is the sheet that will be used for the calcualtions:\t(Make sure your sheet is shared with \"" + client_email + "\")\n> "))
 	else:
 		if not sheet.set_sheet(sheet_link):
 			print("no access to target spreadsheet!")
