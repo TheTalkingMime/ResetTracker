@@ -1,5 +1,6 @@
 import gspread
 from time import time_ns
+import re
 
 trackables = {
 	"misc": [
@@ -95,8 +96,8 @@ class Sheet:
 			return False
 		# get the worksheet
 		self.worksheet = sheet.worksheet("Raw Data")
-		# get the last row on the worksheet
-		self.target_row = self.worksheet.row_count
+		
+		self.target_row = len(self.worksheet.get("A1:A"))
 
 		self.worksheet.add_cols(len(columns) - self.worksheet.col_count)
 
