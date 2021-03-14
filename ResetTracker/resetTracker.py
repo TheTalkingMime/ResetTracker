@@ -2,6 +2,7 @@ import sys
 import getopt
 import pathlib
 import json
+import time
 
 from saves import valid_minecraft_folder, Saves
 from sheet import Sheet
@@ -51,8 +52,8 @@ if __name__ == '__main__':
 	# -o --options
 	# -n --no-save
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "hw:c:s:o:n", [
-		                           "help", "worlds=", "credentials=", "sheet=", "options:", "no-save"])
+		opts, args = getopt.getopt(sys.argv[1:], "hbw:c:s:o:n", [
+		                           "help", "background", "worlds=", "credentials=", "sheet=", "options:", "no-save"])
 	except getopt.GetoptError:
 		sys.exit(2)
 		print('error getting options')
@@ -64,11 +65,14 @@ if __name__ == '__main__':
 	credentials_file = None
 	sheet_link = None
 	no_save = False
+	background = False
 
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			print(help_str)
 			sys.exit(0)
+		if opt in ("-b", "--background"):
+			background = True
 		if opt in ("-o", "--options"):
 			options_file = pathlib.Path(arg)
 		if opt in ("-w", "--worlds"):
@@ -108,6 +112,9 @@ if __name__ == '__main__':
 
 		# ask the user for the file path as a last restort
 		while world_folder == None or not world_folder.exists() or not valid_minecraft_folder(world_folder):
+			if(background):
+				print("no minecraft folder specified for background process")
+				sys.exit(2)
 			world_folder = pathlib.Path(
 				input(".minecraft not found please input .minecraft location:\n> "))
 			world_folder = world_folder.expanduser()
@@ -120,14 +127,19 @@ if __name__ == '__main__':
 
 	sheet = Sheet()
 
-	if credentials_file == None:
+	if credentials_file == None or not credentials_file.exists() or not sheet.load_credentials(credentials_file):
 		# see if we have a saved credentials file
 		if options.has("credentials_file"):
 			credentials_file = pathlib.Path(options.get("credentials_file"))
 
 		# wait for the file to show up or ask the user for the path
 		while credentials_file == None or not credentials_file.exists() or not sheet.load_credentials(credentials_file):
-			path = input("Credentials not found. please move credentials to exactly \"" + local_path.joinpath("credentials.json")
+			if(background):
+				path = local_path.joinpath("credentials.json")
+				print("credentials file not found. Trying again in 5 seconds")
+				time.sleep(5)
+			else:
+				path = input("Credentials not found. please move credentials to exactly \"" + local_path.joinpath("credentials.json")
 			             .absolute().as_posix() + "\" and press enter, or type in the path that the credentials file is located at.\n> ")
 			if path == "":
 				path = local_path.joinpath("credentials.json").absolute()
@@ -150,6 +162,9 @@ if __name__ == '__main__':
 			sheet_link = options.get("sheet")
 		# ask the user for the sheet as a last restort
 		while sheet_link == None or not sheet.set_sheet(sheet_link):
+			if(background):
+				print("no sheet specified for background process")
+				sys.exit(2)
 			sheet_link = options.set("sheet", input(
 				"what is the sheet that will be used for the calcualtions:\t(Make sure your sheet is shared with \"" + client_email + "\")\n> "))
 	else:
@@ -158,3 +173,14 @@ if __name__ == '__main__':
 			sys.exit(2)
 
 	saves = Saves(world_folder, sheet.update_values)
+
+	if background:
+		import atexit
+		atexit.register(saves.stop)
+	else:
+		user_input = None
+		print("type q to exit:")
+		while not user_input == "q":
+			user_input = input("> ")
+			print(user_input)
+		saves.stop()

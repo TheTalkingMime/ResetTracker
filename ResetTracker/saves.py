@@ -123,3 +123,10 @@ class Saves(FileSystemEventHandler):
         if not self.loading_world and not self.active_run and not force:
             return
         self.callback(self.world_id, values)
+
+    def stop(self):
+        print("closing")
+        self.window_listener.stop()
+        self.saves_watchdog.stop()
+        self.saves_watchdog.join()
+        self.world.stop()
