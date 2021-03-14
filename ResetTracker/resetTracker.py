@@ -6,9 +6,18 @@ import json
 from saves import valid_minecraft_folder, Saves
 from sheet import Sheet
 
+help_str = "\
+Help:\n\n\
+-h --help\tprint out this menu\n\
+-w --worlds\tset the directory for your .minecraft/saves folder\n\
+-c --credentials\tset the file that your credentials are located in\n\
+-s --sheet\tset the url for your spreadsheet\n\
+-o --options\tset the file that options are going to be save in\n\
+-n --no-save\tflag to not save settings in options\n\
+"
+
+
 # option file manager
-
-
 class Options:
 	def __init__(self, file, no_save):
 		self.file = file
@@ -42,7 +51,7 @@ if __name__ == '__main__':
 	# -o --options
 	# -n --no-save
 	try:
-		opts, args = getopt.getopt(sys.argv, "hw:c:s:o:n", [
+		opts, args = getopt.getopt(sys.argv[1:], "hw:c:s:o:n", [
 		                           "help", "worlds=", "credentials=", "sheet=", "options:", "no-save"])
 	except getopt.GetoptError:
 		sys.exit(2)
@@ -58,8 +67,8 @@ if __name__ == '__main__':
 
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
-			# TODO: print help string
-		  sys.exit(0)
+			print(help_str)
+			sys.exit(0)
 		if opt in ("-o", "--options"):
 			options_file = pathlib.Path(arg)
 		if opt in ("-w", "--worlds"):
