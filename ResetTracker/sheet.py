@@ -31,9 +31,9 @@ trackables = {
 		"minecraft:picked_up": {
 			"minecraft:blaze_rod": "pickup blaze rod",
 			"minecraft:flint": "pickup flint",
-			"minecraft.ender_pearl": "pickup ender pearl",
-			"minecraft.gold_ingot": "pickup gold ingot",
-			"minecraft.iron_ingot": "pickup iron ingot",
+			"minecraft:ender_pearl": "pickup ender pearl",
+			"minecraft:gold_ingot": "pickup gold ingot",
+			"minecraft:iron_ingot": "pickup iron ingot",
 		},
 		"minecraft:killed": {
 			"minecraft:blaze": "killed blaze",
@@ -63,9 +63,7 @@ trackables = {
 	}
 }
 
-columns = trackables["misc"] + list(trackables["advancements"].values()) + [
-    name for stat_type in trackables["stats"].values() for name in stat_type.values()]
-
+columns = list(set(trackables["misc"] + list(trackables["advancements"].values()) + [name for stat_type in trackables["stats"].values() for name in stat_type.values()]))
 
 class Sheet:
 	def __init__(self, data_saver=False):
@@ -76,12 +74,7 @@ class Sheet:
 		self.target_row = None
 
 		self.data_saver = data_saver
-
-	def refresh_row(self, world_id):
-		self.row = [None] * len(columns)
-		self.row[0] = self.session_id
-		self.row[1] = world_id
-		self.active_world = world_id
+		self.headers = None
 
 	def load_credentials(self, file):
 		try:
@@ -100,19 +93,43 @@ class Sheet:
 		# get the worksheet
 		self.worksheet = sheet.worksheet("Raw Data")
 
+		# get the headers
+		self.refresh_headers()
 
-		self.worksheet.add_cols(len(columns) - self.worksheet.col_count)
-
-		# update the header with our values
-		range_start = gspread.utils.rowcol_to_a1(1, 1)
-		range_end = gspread.utils.rowcol_to_a1(1, len(columns) + 1)
-		self.worksheet.update(range_start + ":" + range_end, [columns])
 		return True
 
 	def get_target_row(self):
 		if self.target_row == None:
 			self.target_row = len(self.worksheet.get("A1:A"))
 		return self.target_row
+
+	def refresh_headers(self):
+		headers = self.worksheet.get("A1:" + gspread.utils.rowcol_to_a1(1, self.worksheet.col_count))
+
+		if len(headers) == 0:
+			# if we have not headers set then default to tracking everything
+			self.headers = columns
+			self.worksheet.add_cols(len(columns) - self.worksheet.col_count)
+
+			# update the header with our values
+			range_start = gspread.utils.rowcol_to_a1(1, 1)
+			range_end = gspread.utils.rowcol_to_a1(1, len(columns) + 1)
+			self.worksheet.update(range_start + ":" + range_end, [columns])
+		else:
+			self.headers = headers[0]
+
+	def refresh_row(self, world_id):
+		# if we are on data saver mode push the row and update row index before clearing it
+		if self.data_saver:
+			self.push_row()
+			self.target_row += 1
+		# if we arnt on data saver mode then just clear the row
+		else:
+			self.target_row = None
+		self.row = [None] * len(columns)
+		self.row[0] = self.session_id
+		self.row[1] = world_id
+		self.active_world = world_id
 	
 	def push_row(self):
 		target_row = self.get_target_row()
@@ -122,15 +139,14 @@ class Sheet:
 
 	def update_values(self, world_id, values):
 		if not world_id == self.active_world:
-			if self.data_saver:
-				self.push_row()
-				self.target_row += 1
-			else:
-				self.target_row = None
 			self.refresh_row(world_id)
 			self.worksheet.append_row(self.row)
-		for name, value in values.items():
-			self.row[columns.index(name)] = value
 		
+		for name, value in values.items():
+			try:
+				self.row[self.headers.index(name)] = value
+			except:
+				pass
+
 		if not self.data_saver:
 			self.push_row()
