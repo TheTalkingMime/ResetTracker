@@ -16,8 +16,14 @@ trackables = {
 			"minecraft:play_one_minute": "ticks played",
 			"minecraft:damage_taken": "damage taken",
 			"minecraft:jump": "jump count",
+			"minecraft:walk_one_cm": "walk one cm",
 			"minecraft:sprint_one_cm": "sprint one cm",
+			"minecraft:swim_one_cm": "swim one cm",
 			"minecraft:boat_one_cm": "boat one cm",
+			"minecraft:interact_with_crafting_table": "interact with crafting table",
+			"minecraft:interact_with_furnace": "interact with furnace",
+			"minecraft:deaths": "deaths",
+			"minecraft:talked_to_villager": "trade attempts"
 		},
 		"minecraft:crafted": {
 			"minecraft:wooden_axe": "craft wooden axe",
@@ -34,6 +40,22 @@ trackables = {
 			"minecraft:ender_pearl": "pickup ender pearl",
 			"minecraft:gold_ingot": "pickup gold ingot",
 			"minecraft:iron_ingot": "pickup iron ingot",
+			"minecraft:oak_log": "pickup log",
+			"minecraft:stripped_oak_log": "pickup log",
+			"minecraft:spruce_log": "pickup log",
+			"minecraft:stripped_spruce_log": "pickup log",
+			"minecraft:birch_log": "pickup log",
+			"minecraft:stripped_birch_log": "pickup log",
+			"minecraft:jungle_log": "pickup log",
+			"minecraft:stripped_jungle_log": "pickup log",
+			"minecraft:acacia_log": "pickup log",
+			"minecraft:stripped_acacia_log": "pickup log",
+			"minecraft:dark_oak_log": "pickup log",
+			"minecraft:stripped_dark_oak_log": "pickup log",
+			"minecraft:crimson_stem": "pickup log",
+			"minecraft:stripped_crimson_stem": "pickup log",
+			"minecraft:warped_stem": "pickup log",
+			"minecraft:stripped_warped_stem": "pickup log",
 		},
 		"minecraft:killed": {
 			"minecraft:blaze": "killed blaze",
@@ -44,10 +66,13 @@ trackables = {
 			"minecraft:iron_ore": "mined iron ore",
 			"minecraft:hay_block": "mined hay block",
 			"minecraft:magma_block": "mined magma block",
-			"minecraft:gravel": "mined gravel"
+			"minecraft:gravel": "mined gravel",
+			"minecraft:crafting_table": "mined crafting table",
 		},
 		"minecraft:item_used": {
-			"minecraft:minecraft:ender_eye": "eyes used",
+			"minecraft:ender_eye": "eyes used",
+			"minecraft:barrel": "barrels placed",
+			"minecraft:composter": "composter placed",
 		},
 	},
 	"advancements": {
@@ -117,6 +142,16 @@ class Sheet:
 			self.worksheet.update(range_start + ":" + range_end, [columns])
 		else:
 			self.headers = headers[0]
+
+	def update_headers(self, blacklist=[]):
+		refresh_headers()
+		new_headers = [key for key in columns if key not in blacklist and key not in self.headers]
+		self.headers += new_headers
+		
+		# update the header with our values
+		range_start = gspread.utils.rowcol_to_a1(1, 1)
+		range_end = gspread.utils.rowcol_to_a1(1, len(columns) + 1)
+		self.worksheet.update(range_start + ":" + range_end, [columns])
 
 	def refresh_row(self, world_id):
 		# if we are on data saver mode push the row and update row index before clearing it
