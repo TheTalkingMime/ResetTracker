@@ -1,3 +1,4 @@
+import sys
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from time import time_ns
@@ -56,22 +57,22 @@ class Saves(FileSystemEventHandler):
     def on_created(self, event):
         if not event.is_directory:
             return
-        # if self.last_world_path == event.src_path:
-        try:
-            self.world.set_world(event.src_path)
-            self.world_id += 1
-            self.loading_world = True
-            self.update_values({"world created": time_ns() // 1000000})
-        except:
-            pass
-        # else:
-        #     self.last_world_path = event.src_path
+        if self.last_world_path == event.src_path or sys.platform.startswith("win32"):
+            try:
+                self.world.set_world(event.src_path)
+                self.world_id += 1
+                self.loading_world = True
+                self.update_values({"world created": time_ns() // 1000000})
+            except:
+                pass
+        else:
+            self.last_world_path = event.src_path
 
     # function that gets run every second to get the active window title
     def window_title_listener(self):
         title = get_window_name()
         # make sure that the window that we are looking at is minecraft
-        if not title.startswith("Minecraft* 1.16.1"):
+        if not title.startswith("Minecraft* "):
             return
         # we only care about when the title changes
         if not title == self.window_title:
@@ -122,3 +123,10 @@ class Saves(FileSystemEventHandler):
         if not self.loading_world and not self.active_run and not force:
             return
         self.callback(self.world_id, values)
+
+    def stop(self):
+        print("closing")
+        self.window_listener.stop()
+        self.saves_watchdog.stop()
+        self.saves_watchdog.join()
+        self.world.stop()
