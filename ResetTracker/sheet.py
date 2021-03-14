@@ -144,10 +144,10 @@ class Sheet:
 			self.headers = headers[0]
 
 	def update_headers(self, blacklist=[]):
-		refresh_headers()
+		self.refresh_headers()
 		new_headers = [key for key in columns if key not in blacklist and key not in self.headers]
 		self.headers += new_headers
-		
+
 		# update the header with our values
 		range_start = gspread.utils.rowcol_to_a1(1, 1)
 		range_end = gspread.utils.rowcol_to_a1(1, len(columns) + 1)
