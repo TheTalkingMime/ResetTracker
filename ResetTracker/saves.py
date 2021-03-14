@@ -72,7 +72,7 @@ class Saves(FileSystemEventHandler):
     def window_title_listener(self):
         title = get_window_name()
         # make sure that the window that we are looking at is minecraft
-        if not title.startswith("Minecraft* 1.16.1"):
+        if not title.startswith("Minecraft* "):
             return
         # we only care about when the title changes
         if not title == self.window_title:
