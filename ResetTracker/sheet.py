@@ -68,12 +68,14 @@ columns = trackables["misc"] + list(trackables["advancements"].values()) + [
 
 
 class Sheet:
-	def __init__(self):
+	def __init__(self, data_saver=False):
 		self.client = None
 		self.worksheet = None
 		self.session_id = time_ns() // 1_000_000
 		self.active_world = None
 		self.target_row = None
+
+		self.data_saver = data_saver
 
 	def refresh_row(self, world_id):
 		self.row = [None] * len(columns)
@@ -88,6 +90,7 @@ class Sheet:
 		except:
 			return False
 
+
 	def set_sheet(self, sheet_link):
 		try:
 			# see if we have access to the listed sheet
@@ -96,8 +99,7 @@ class Sheet:
 			return False
 		# get the worksheet
 		self.worksheet = sheet.worksheet("Raw Data")
-		
-		self.target_row = len(self.worksheet.get("A1:A"))
+
 
 		self.worksheet.add_cols(len(columns) - self.worksheet.col_count)
 
@@ -107,13 +109,28 @@ class Sheet:
 		self.worksheet.update(range_start + ":" + range_end, [columns])
 		return True
 
+	def get_target_row(self):
+		if self.target_row == None:
+			self.target_row = len(self.worksheet.get("A1:A"))
+		return self.target_row
+	
+	def push_row(self):
+		target_row = self.get_target_row()
+		range_start = gspread.utils.rowcol_to_a1(target_row, 1)
+		range_end = gspread.utils.rowcol_to_a1(target_row, len(self.row) + 1)
+		self.worksheet.update(range_start + ":" + range_end, [self.row])
+
 	def update_values(self, world_id, values):
 		if not world_id == self.active_world:
-			self.target_row += 1
+			if self.data_saver:
+				self.push_row()
+				self.target_row += 1
+			else:
+				self.target_row = None
 			self.refresh_row(world_id)
 			self.worksheet.append_row(self.row)
 		for name, value in values.items():
 			self.row[columns.index(name)] = value
-		range_start = gspread.utils.rowcol_to_a1(self.target_row, 1)
-		range_end = gspread.utils.rowcol_to_a1(self.target_row, len(self.row) + 1)
-		self.worksheet.update(range_start + ":" + range_end, [self.row])
+		
+		if not self.data_saver:
+			self.push_row()
