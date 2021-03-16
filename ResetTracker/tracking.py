@@ -146,7 +146,6 @@ Stat("meta", "igt", "minecraft:custom", "minecraft:play_one_minute", handler=lam
 
 Advancement("getting wood", "minecraft:recipes/misc/charcoal")
 Advancement("iron pickaxe", "minecraft:story/iron_tools")
-Advancement("hot stuff", "minecraft:story/lava_bucket")
 Advancement("we need to go deeper", "minecraft:story/enter_the_nether")
 Advancement("those where the days", "minecraft:nether/find_bastion")
 Advancement("a terrible fortress", "minecraft:nether/find_fortress")
