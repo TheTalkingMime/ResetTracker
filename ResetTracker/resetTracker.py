@@ -113,16 +113,16 @@ if __name__ == '__main__':
 		# ask the user for the file path as a last restort
 		while world_folder == None or not world_folder.exists() or not valid_minecraft_folder(world_folder):
 			if(background):
-				print("no minecraft folder specified for background process")
+				print("no saves folder specified for background process")
 				sys.exit(2)
 			world_folder = pathlib.Path(
-				input(".minecraft not found please input .minecraft location:\n> "))
+				input("saves folder not found please input saves folder location:\n> "))
 			world_folder = world_folder.expanduser()
 		# save the path in the options file
 		options.set("world_folder", world_folder.absolute().as_posix())
 	else:
 		if not world_folder.exists() or valid_minecraft_folder(world_folder):
-			print("specified .minecraft folder does not exist!")
+			print("specified saves folder does not exist!")
 			sys.exit(2)
 
 	sheet = Sheet()

@@ -2,10 +2,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import json
 
-from sheet import trackables
-
-checks = trackables["stats"]
-
+from tracking import Stat
 
 class Stats(FileSystemEventHandler):
 	def __init__(self, callback):
@@ -17,17 +14,11 @@ class Stats(FileSystemEventHandler):
 	def on_modified(self, event):
 		if event.is_directory:
 			return
-		output = {}
 		with open(event.src_path) as f:
 			# map though all of the stats that we are tracking and at them to an output array
-			stats = json.load(f)["stats"]
-			for stat_type, values in checks.items():
-				for namespace_id, name in values.items():
-					value = stats.get(stat_type, {}).get(namespace_id, None)
-					if not value == None:
-						output[name] = value
+			stats = Stat.parse_stats(json.load(f)["stats"])
 		# send the output back up to be prossesed
-		self.callback(output)
+		self.callback(stats)
 
 	def set_path(self, path):
 		self.file_watchdog = Observer()

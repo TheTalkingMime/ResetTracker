@@ -6,127 +6,124 @@ from time import time_ns
 from world import World
 from repeated_timer import RepeatedTimer
 from window import get_window_name
-
+from tracking import Parsed_Value
 
 def is_saves(path):
-    return path.parts[-1] == "saves"
-
+	return path.parts[-1] == "saves"
 
 def is_minecraft(path):
-    return path.joinpath("saves/").exists()
-
+	return path.joinpath("saves/").exists()
 
 def valid_minecraft_folder(path):
-    return is_saves(path) or is_minecraft(path)
-
+	return is_saves(path) or is_minecraft(path)
 
 class Saves(FileSystemEventHandler):
-    def __init__(self, path, callback):
-        # normalize the file path
-        print("Tracking...")
-        if is_minecraft(path):
-            path = path.joinpath("saves/")
-        self.path = path
+	def __init__(self, path, callback):
+		# normalize the file path
+		print("Tracking...")
+		if is_minecraft(path):
+			path = path.joinpath("saves/")
+		self.path = path
 
-        # callback for all of the values
-        self.callback = callback
+		# callback for all of the values
+		self.callback = callback
 
-        # id for the active world
-        self.world_id = -1
-        self.last_world_path = ""
+		# id for the active world
+		self.world_id = -1
+		self.last_world_path = ""
 
-        # start watchdog for new minecraft worlds
-        self.saves_watchdog = Observer()
-        self.saves_watchdog.schedule(self, self.path, recursive=False)
-        self.saves_watchdog.start()
+		# start watchdog for new minecraft worlds
+		self.saves_watchdog = Observer()
+		self.saves_watchdog.schedule(self, self.path, recursive=False)
+		self.saves_watchdog.start()
 
-        # listener for window title change
-        self.window_title = None
-        self.window_listener = RepeatedTimer(0.1, self.window_title_listener)
+		# listener for window title change
+		self.window_title = None
+		self.window_listener = RepeatedTimer(0.1, self.window_title_listener)
 
-        # valuse for game state
-        self.active_run = False
-        self.loading_world = False
-        self.active_window = False
-        self.checking = False
+		# valuse for game state
+		self.active_run = False
+		self.loading_world = False
+		self.active_window = False
+		self.checking = False
 
-        # this is our world file instance
-        self.world = World(self.update_values)
+		# this is our world file instance
+		self.world = World(self.update_values)
 
-    # function that gets run on a new world files being made
-    def on_created(self, event):
-        if not event.is_directory:
-            return
-        if self.last_world_path == event.src_path or sys.platform.startswith("win32"):
-            try:
-                self.world.set_world(event.src_path)
-                self.world_id += 1
-                self.loading_world = True
-                self.update_values({"world created": time_ns() // 1000000})
-            except:
-                pass
-        else:
-            self.last_world_path = event.src_path
+	# function that gets run on a new world files being made
+	def on_created(self, event):
+		if not event.is_directory:
+			return
+		if self.last_world_path == event.src_path or sys.platform.startswith("win32"):
+			try:
+				self.world.set_world(event.src_path)
+				self.world_id += 1
+				self.loading_world = True
+				self.update_values([Parsed_Value(time_ns() // 1000000, "meta", "world created")])
+			except:
+				pass
+		else:
+			self.last_world_path = event.src_path
 
-    # function that gets run every second to get the active window title
-    def window_title_listener(self):
-        title = get_window_name()
-        # make sure that the window that we are looking at is minecraft
-        if not title.startswith("Minecraft* "):
-            return
-        # we only care about when the title changes
-        if not title == self.window_title:
-            self.window_title = title
-            # call the title change listener
-            self.on_title_change(self.window_title)
+	# function that gets run every second to get the active window title
+	def window_title_listener(self):
+		title = get_window_name()
+		# make sure that the window that we are looking at is minecraft
+		if not title.startswith("Minecraft* "):
+			return
+		# we only care about when the title changes
+		if not title == self.window_title:
+			self.window_title = title
+			# call the title change listener
+			self.on_title_change(self.window_title)
 
-    # function that gets an when the title changes
-    def on_title_change(self, title):
-        # see if we are in single player and if thats a new thing
-        if title.endswith("Singleplayer") and not self.active_window:
-            self.set_active_window(True)
-        # if we arnt in single player and thats a new thing we are in lan or the home menu
-        elif not title.endswith("Singleplayer") and self.active_window:
-            self.set_active_window(False)
+	# function that gets an when the title changes
+	def on_title_change(self, title):
+		# see if we are in single player and if thats a new thing
+		if title.endswith("Singleplayer") and not self.active_window:
+			self.set_active_window(True)
+		# if we arnt in single player and thats a new thing we are in lan or the home menu
+		elif not title.endswith("Singleplayer") and self.active_window:
+			self.set_active_window(False)
 
-        if title.endswith("Multiplayer (LAN)") and not self.checking:
-            self.set_checking(True)
-        elif not title.endswith("Multiplayer (LAN)") and self.checking:
-            self.set_checking(False)
+		if title.endswith("Multiplayer (LAN)") and not self.checking:
+			self.set_checking(True)
+		elif not title.endswith("Multiplayer (LAN)") and self.checking:
+			self.set_checking(False)
 
-    # function for manageing the active window state along with world loading
-    def set_active_window(self, active):
-        self.active_window = active
-        # if we are loading a world and the window is active then we arnt loading the world anymore
-        if self.loading_world and self.active_window:
-            self.loading_world = False
-            self.set_active_run(True)
-        # if we arnt loading a world and the window is not active then we are no longer in single player
-        elif not self.loading_world and not self.active_window:
-            self.update_values({"run ended": time_ns() // 1000000})
-            self.set_active_run(False)
+	# function for manageing the active window state along with world loading
+	def set_active_window(self, active):
+		self.active_window = active
+		# if we are loading a world and the window is active then we arnt loading the world anymore
+		if self.loading_world and self.active_window:
+			self.loading_world = False
+			self.set_active_run(True)
+		# if we arnt loading a world and the window is not active then we are no longer in single player
+		elif not self.loading_world and not self.active_window:
+			self.update_values([Parsed_Value(time_ns() // 1000000, "meta", "run ended")])
+			self.set_active_run(False)
 
-    def set_checking(self, checking):
-        if self.checking and not checking:
-            self.update_values({"checking ended": time_ns() // 1000000}, force=True)
-        self.checking = checking
+	def set_checking(self, checking):
+		if self.checking and not checking:
+			self.update_values([Parsed_Value(time_ns() // 1000000, "meta", "checking ended")], force=True)
+		self.checking = checking
 
-    # function for setting if our run is active and stopping the watchdogs if it isnt
-    def set_active_run(self, active):
-        self.active_run = active
-        # close the world listeners if the run is no longer active
-        if not self.active_run:
-            self.world.stop()
+	# function for setting if our run is active and stopping the watchdogs if it isnt
+	def set_active_run(self, active):
+		self.active_run = active
+		# close the world listeners if the run is no longer active
+		if not self.active_run:
+			self.world.stop()
 
-    # callback for our world to pass values back up to us
-    def update_values(self, values, force=False):
-        if not self.loading_world and not self.active_run and not force:
-            return
-        self.callback(self.world_id, values)
+	# callback for our world to pass values back up to us
+	def update_values(self, values, force=False):
+		if not self.loading_world and not self.active_run and not force:
+			return
+		self.callback(self.world_id, values)
 
-    def stop(self):
-        print("closing")
-        self.window_listener.stop()
-        self.saves_watchdog.stop()
-        self.saves_watchdog.join()
-        self.world.stop()
+	def stop(self):
+		print("closing")
+		self.window_listener.stop()
+		self.saves_watchdog.stop()
+		self.saves_watchdog.join()
+		self.world.stop()

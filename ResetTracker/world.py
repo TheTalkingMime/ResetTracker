@@ -4,7 +4,7 @@ from time import time_ns
 
 from stats import Stats
 from advancements import Advancements
-
+from tracking import Parsed_Value
 
 class World(FileSystemEventHandler):
 	def __init__(self, callback):
@@ -24,9 +24,7 @@ class World(FileSystemEventHandler):
 
 		if not self.loaded and event.src_path[-5:] == "stats" or event.src_path[-5:] == "advancements":
 			self.loaded = True
-			self.callback({
-				"world loaded": time_ns() // 1000000
-			})
+			self.callback([Parsed_Value(time_ns() // 1000000, "meta", "world loaded")])
 
 		if event.src_path[-5:] == "stats":
 			self.stats.set_path(event.src_path)
