@@ -14,8 +14,13 @@ class Advancements(FileSystemEventHandler):
 	def on_modified(self, event):
 		if event.is_directory:
 			return
-		with open(event.src_path) as f:
-			advancements = Advancement.parse_advancements(json.load(f))
+		try:
+			with open(event.src_path) as f:
+				json_data = json.load(f)
+		except:
+			print("error test advancments")
+			return
+		advancements = Advancement.parse_advancements(json_data)
 		self.callback(advancements)
 
 	def set_path(self, path):

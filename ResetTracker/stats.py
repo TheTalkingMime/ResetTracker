@@ -14,12 +14,17 @@ class Stats(FileSystemEventHandler):
 	def on_modified(self, event):
 		if event.is_directory:
 			return
-		with open(event.src_path) as f:
-			# map though all of the stats that we are tracking and at them to an output array
-			stats = Stat.parse_stats(json.load(f)["stats"])
+		try:
+			with open(event.src_path) as f:
+				# map though all of the stats that we are tracking and at them to an output array
+				json_data = json.load(f)
+		except:
+			print("error test stats")
+			return
 		# send the output back up to be prossesed
+		stats = Stat.parse_stats(json_data["stats"])
 		self.callback(stats)
-
+		
 	def set_path(self, path):
 		self.file_watchdog = Observer()
 		self.file_watchdog.schedule(self, path, recursive=False)
