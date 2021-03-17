@@ -138,4 +138,4 @@ dmypy.json
 cython_debug/
 
 credentials.json
-defualt_options.json
+default_options.json

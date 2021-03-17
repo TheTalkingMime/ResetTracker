@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
 	# get out options file
 	if options_file == None:
-		options_file = local_path.joinpath("defualt_options.json").absolute()
+		options_file = local_path.joinpath("default_options.json").absolute()
 	else:
 		if not options_file.exists():
 			print("specified options folder does not exists!")
@@ -166,7 +166,7 @@ if __name__ == '__main__':
 				print("no sheet specified for background process")
 				sys.exit(2)
 			sheet_link = options.set("sheet", input(
-				"what is the sheet that will be used for the calcualtions:\t(Make sure your sheet is shared with \"" + client_email + "\")\n> "))
+				"what is the sheet that will be used for the calculations:\t(Make sure your sheet is shared with \"" + client_email + "\")\n> "))
 	else:
 		if not sheet.set_sheet(sheet_link):
 			print("no access to target spreadsheet!")
