@@ -18,7 +18,6 @@ class Advancements(FileSystemEventHandler):
 			with open(event.src_path) as f:
 				json_data = json.load(f)
 		except:
-			print("error test advancments")
 			return
 		advancements = Advancement.parse_advancements(json_data)
 		self.callback(advancements)

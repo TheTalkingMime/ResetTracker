@@ -19,7 +19,6 @@ class Stats(FileSystemEventHandler):
 				# map though all of the stats that we are tracking and at them to an output array
 				json_data = json.load(f)
 		except:
-			print("error test stats")
 			return
 		# send the output back up to be prossesed
 		stats = Stat.parse_stats(json_data["stats"])
