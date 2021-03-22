@@ -1,6 +1,12 @@
 import gspread
 from time import time_ns
 import re
+from urllib.parse import urlparse
+import pathlib
+import time
+import json
+import sys
+import openpyxl
 
 from tracking import Group
 
@@ -45,141 +51,150 @@ header_aliases = {
 	"Magma Block": "magma block mined",
 }
 
-class Sheet:
-	def __init__(self, data_saver=False):
-		self.client = None
-		self.worksheet = None
-		self.session_id = time_ns() // 1_000_000
-		self.world_id = None
-		self.target_row = None
+local_path = pathlib.Path(__file__).parent.parent
 
-		self.data_saver = data_saver
-		self.headers = None
+def is_google_sheet(sheet):
+	return urlparse(sheet).scheme != ""
 
-	def load_credentials(self, file):
-		try:
-			self.client = gspread.service_account(filename=file)
-			return True
-		except:
-			return False
-
-	def set_sheet(self, sheet_link):
-		try:
-			# see if we have access to the listed sheet
-			sheet = self.client.open_by_url(sheet_link)
-		except:
-			return False
-		# get the worksheet
-		self.worksheet = sheet.worksheet("Raw Data")
-
-		# get the headers
-		self.organize_headers()
-		
+def get_sheet_access(client, sheet):
+	try:
+		client.open_by_url(sheet)
 		return True
+	except:
+		return False
 
-	def get_target_row(self):
-		if self.target_row == None:
-			self.target_row = len(self.worksheet.get("A1:A"))
-		return self.target_row
-
-	def organize_headers(self):
-		# get all of our headers that we want in line
-		self.refresh_headers()
-		current_headers = [ header if not header in header_aliases else header_aliases[header] for header in self.headers ]
-		group_headers = [ item.name for group in Group.groups for item in group.get_items() ]
-
-		# get a list of what the new headers are going to be
-		all_headers = list(dict.fromkeys(current_headers + group_headers))
-
-		# make sure we have space for all of the headers
-		missing_col = len(all_headers) - self.worksheet.col_count
-		self.worksheet.add_cols(missing_col)
-
-		# get the current data from the spreadsheet
-		current_data = self.worksheet.batch_get([ gspread.utils.rowcol_to_a1(3, i) + ":" + gspread.utils.rowcol_to_a1(3, i)[:-1] for i in range(1, len(all_headers) + 1)])
-		def parse_value(value):
-			if len(value) == 0:
-				return []
-			else:
-				try:
-					return [float(value[0])]
-				except:
-					return value
-
-		current_data = [[ parse_value(row) for row in column ] + [[""]] * (len(current_data[0]) - len(column)) for column in current_data ]
-		group_names = [ group.name for group in Group.groups ]
-
-		# sort our headers into our groups
-		groups = [[] for i in range(len(group_names))]
-		no_group = []
-		for index, header in enumerate(all_headers):
-			if header in group_headers:
-				groups[group_names.index(Group.find_host_group(header))].append((header, index))
-			else:
-				no_group.append((header, index))
-
-		# orginize our groups to match the order items where defined in
-		for index, group in enumerate(groups):
-			def get_group_order(e):
-				g = Group.groups[index]
-				for i, item in enumerate(g.get_items()):
-					if e[0] == item.name:
-						return i
-				return 0
-
-			group = group.sort(key=get_group_order)
-
-		# get our data for each column
-		remapped_data = [item for group in groups for item in group] + no_group
-		remapped_data = [[[header], ["-"]] + current_data[index] for header, index in remapped_data ]
-
-		# remap all the data with our new headers
-		self.worksheet.batch_update([ {
-			"range": gspread.utils.rowcol_to_a1(1, index + 1) + ":" + gspread.utils.rowcol_to_a1(1, index + 1)[:-1],
-			"values": column
-		} for index, column in enumerate(remapped_data)], value_input_option="RAW")
-
-	def refresh_headers(self):
-		headers = self.worksheet.get("A1:" + gspread.utils.rowcol_to_a1(1, self.worksheet.col_count))
-		try:
-			self.headers = headers[0]
-		except:
-			self.headers = headers
-		return self.headers
-
-	def refresh_row(self, world_id):
-		# if we are on data saver mode push the row and update row index before clearing it
-		if self.data_saver:
-			self.push_row()
-			self.target_row += 1
-		# if we arnt on data saver mode then just clear the row
+def get_credentials(sheets, prompt):
+	urls = [sheet for sheet in sheets if urlparse(sheet).scheme != ""]
+	print("Credentials not found. please move credentials to exactly \"" + local_path.joinpath("credentials.json")
+            .absolute().as_posix() + "\" and press enter, or type in the path that the credentials file is located at.")
+	while True:
+		if prompt:
+			file = input("> ")
 		else:
-			self.target_row = None
-		self.row = [None] * len(self.headers)
-		self.world_id = world_id
-		self.set_row_value("session id", self.session_id)
-		self.set_row_value("world id", self.world_id)
+			path = local_path.joinpath("credentials.json").absolute()
+			time.sleep(5)
 
-	def set_row_value(self, row_name, value):
+		if file == "":
+			path = local_path.joinpath("credentials.json").absolute()
+
+		file = pathlib.Path(file)
+		file = file.expanduser()
+
+		if not file.exists():
+			continue
+
+		filename = file.as_posix()
+
 		try:
-			self.row[self.headers.index(row_name)] = value
+			client = gspread.service_account(filename=filename)
+		except:
+			continue
+
+		if all(get_sheet_access(client, sheet) for sheet in urls):
+			return filename
+		else:
+			with file.open("r") as f:
+				client_email = json.load(f)["client_email"]
+				print("client couldnt access all target sheets. please make sure it is shared with " + client_email)
+
+def get_client(filename):
+	if filename == None:
+		return None
+	return gspread.service_account(filename=filename)
+
+def create_sheet(uri, client):
+	if is_google_sheet(uri):
+		if client == None:
+			print("ERROR: no client for google sheets")
+			sys.exit(2)
+		return GoogleSheet(uri, client)
+	return SpreadSheet(uri)
+
+class Sheet:
+	columns = Group.get_names()
+	column_count = len(columns)
+
+	def __init__(self, sheet):
+		self.sheet = sheet
+		self.session_id = time_ns() // 1_000_000
+
+		self.row_lines = []
+		self.rows = []
+
+		self.next_row = 0
+
+	def stop(self):
+		for row in range(len(self.rows)):
+			self.update_row(row)
+
+	def get_next_row(self):
+		self.next_row += 1
+		return self.next_row
+
+	def get_active_row(self, folder_id):
+		if len(self.rows) <= folder_id:
+			self.rows += [ [None] * Sheet.column_count for i in range(len(self.row_lines) + 1 - folder_id)]
+			self.row_lines += [ self.get_next_row() for i in range(len(self.row_lines) + 1 - folder_id)]
+		return self.rows[folder_id]
+
+	def update_row(self, folder_id, world_id, column_name, value):
+		pass
+	
+	def push_row(self, folder_id):
+		self.update_row(folder_id)
+		self.rows[folder_id] = [None] * Sheet.column_count
+		self.row_lines[folder_id] = self.get_next_row()
+
+	def set_row_value(self, folder_id, column_name, value):
+		try:
+			self.get_active_row(folder_id)[Sheet.columns.index(column_name)] = value
 		except:
 			pass
-	
-	def push_row(self):
-		target_row = self.get_target_row()
-		range_start = gspread.utils.rowcol_to_a1(target_row, 1)
-		range_end = gspread.utils.rowcol_to_a1(target_row, len(self.row) + 1)
-		self.worksheet.update(range_start + ":" + range_end, [self.row])
 
-	def update_values(self, world_id, values):
-		if not world_id == self.world_id:
-			self.refresh_headers()
-			self.refresh_row(world_id)
-			self.worksheet.append_row(self.row)
+	def update_values(self, folder_id, world_id, values):
+		row = self.get_active_row(folder_id)
+		last_world_id = row[2]
+		if not last_world_id == world_id:
+			if not last_world_id == None:
+				self.push_row(folder_id)
+			# set the meta data on this row
+			self.set_row_value(folder_id, "session id", self.session_id)
+			self.set_row_value(folder_id, "folder id", folder_id)
+			self.set_row_value(folder_id, "world id", world_id)
 
 		for value in values:
-			self.set_row_value(value.name, value.value)
+			self.set_row_value(folder_id, value.name, value.value)
+		self.update_row(folder_id)
 
-		if not self.data_saver:
-			self.push_row()
+class SpreadSheet(Sheet):
+	def __init__(self, filename):
+		super().__init__(filename)
+		self.workbook = openpyxl.load_workbook(filename)
+		self.worksheet = self.workbook.get_sheet_by_name('Raw Data')
+		self.next_row = self.worksheet.max_row + 1
+	
+	def update_row(self, folder_id):
+		row = self.rows[folder_id]
+		target_row = self.row_lines[folder_id]
+
+		for i in range(len(row)):
+			self.worksheet.cell(row=target_row, column=i + 1).value = row[i]
+		
+		self.workbook.save(self.sheet)
+
+class GoogleSheet(Sheet):
+	def __init__(self, url, client):
+		super().__init__(client.open_by_url(url))
+		self.worksheet = self.sheet.worksheet("Raw Data")
+		self.next_row = len(self.worksheet.get("A1:A"))
+
+	def update_row(self, folder_id):
+		row = self.rows[folder_id]
+		target_row = self.row_lines[folder_id]
+
+		range_start = gspread.utils.rowcol_to_a1(target_row, 1)
+		range_end = gspread.utils.rowcol_to_a1(target_row, len(row) + 1)
+		try:
+			self.worksheet.update(range_start + ":" + range_end, [row])
+		except:
+			self.worksheet.append_row(row)

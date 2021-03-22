@@ -5,6 +5,9 @@ class Parsed_Value:
 		self.value = value
 		self.group = group
 		self.name = name
+	
+	def __repr__(self):
+		return self.group + " - " + self.name + ": " + str(self.value)
 
 class Group:
 	groups = []
@@ -21,6 +24,10 @@ class Group:
 		for group in Group.groups:
 			if not group.find_item(name) == None:
 				return group.name
+
+	@staticmethod
+	def get_names():
+		return [ item.name for group in Group.groups for item in group.get_items() ]
 
 	def __init__(self, name, first_item=None):
 		self.name = name
@@ -136,6 +143,7 @@ class Advancement(Trackable):
 			return super().parse(int(datetime.strptime(criteria[self.track_target][0:19], "%Y-%m-%d %H:%M:%S").timestamp() * 1000))
 
 Trackable("meta", "session id")
+Trackable("meta", "folder id")
 Trackable("meta", "world id")
 Trackable("meta", "world created")
 Trackable("meta", "world loaded")

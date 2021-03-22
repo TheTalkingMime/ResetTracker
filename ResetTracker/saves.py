@@ -8,25 +8,24 @@ from repeated_timer import RepeatedTimer
 from window import get_window_name
 from tracking import Parsed_Value
 
-def is_saves(path):
-	return path.parts[-1] == "saves"
 
-def is_minecraft(path):
-	return path.joinpath("saves/").exists()
-
-def valid_minecraft_folder(path):
-	return is_saves(path) or is_minecraft(path)
+folder_id = -1
+def get_folder_id():
+	global folder_id
+	folder_id += 1
+	return folder_id
 
 class Saves(FileSystemEventHandler):
-	def __init__(self, path, callback):
+	def __init__(self, path, callback, injest):
+		#TODO: injest
 		# normalize the file path
-		print("Tracking...")
-		if is_minecraft(path):
-			path = path.joinpath("saves/")
+		print("Tracking at: " + path)
 		self.path = path
 
 		# callback for all of the values
 		self.callback = callback
+
+		self.folder_id = get_folder_id()
 
 		# id for the active world
 		self.world_id = -1
@@ -119,7 +118,7 @@ class Saves(FileSystemEventHandler):
 	def update_values(self, values, force=False):
 		if not self.loading_world and not self.active_run and not force:
 			return
-		self.callback(self.world_id, values)
+		self.callback(self.folder_id, self.world_id, values)
 
 	def stop(self):
 		print("closing")
