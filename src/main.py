@@ -1,7 +1,7 @@
 import sys
 import getopt
 
-from saves import Saves
+from world_folder import World_Folder
 from options import Options
 from sheet import get_client, create_sheet
 
@@ -41,7 +41,7 @@ if __name__ == '__main__':
 			except:
 				pass
 
-	worlds = [ Saves(world, update_values, options.get_injest()) for world in options.get_worlds() ]
+	worlds = [ World_Folder(folder, update_values, options.get_injest()) for folder in options.get_worlds() ]
 
 	if options.get_prompt():
 		import atexit

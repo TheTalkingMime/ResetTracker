@@ -1,12 +1,14 @@
 import gspread
-from time import time_ns
-import re
+import openpyxl
+
 from urllib.parse import urlparse
 import pathlib
-import time
+
 import json
 import sys
-import openpyxl
+
+from time import time_ns
+from time import sleep
 
 from tracking import Group
 
@@ -72,7 +74,7 @@ def get_credentials(sheets, prompt):
 			file = input("> ")
 		else:
 			path = local_path.joinpath("credentials.json").absolute()
-			time.sleep(5)
+			sleep(5)
 
 		if file == "":
 			path = local_path.joinpath("credentials.json").absolute()

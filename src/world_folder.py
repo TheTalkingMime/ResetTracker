@@ -2,52 +2,56 @@ import sys
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from time import time_ns
+from os import scandir
 
 from world import World
 from repeated_timer import RepeatedTimer
 from window import get_window_name
 from tracking import Parsed_Value
 
+class World_Folder(FileSystemEventHandler):
+	folder_id = 0
+	@staticmethod
+	def get_folder_id():
+		World_Folder.folder_id += 1
+		return World_Folder.folder_id
 
-folder_id = -1
-def get_folder_id():
-	global folder_id
-	folder_id += 1
-	return folder_id
-
-class Saves(FileSystemEventHandler):
 	def __init__(self, path, callback, injest):
 		#TODO: injest
 		# normalize the file path
 		print("Tracking at: " + path)
 		self.path = path
 
+		self.folder_id = World_Folder.get_folder_id()
+
 		# callback for all of the values
 		self.callback = callback
 
-		self.folder_id = get_folder_id()
+		if injest:
+			for world in scandir(self.path):
+				print(world)
+		else:
+			# id for the active world
+			self.world_id = -1
+			self.last_world_path = ""
 
-		# id for the active world
-		self.world_id = -1
-		self.last_world_path = ""
+			# start watchdog for new minecraft worlds
+			self.saves_watchdog = Observer()
+			self.saves_watchdog.schedule(self, self.path, recursive=False)
+			self.saves_watchdog.start()
 
-		# start watchdog for new minecraft worlds
-		self.saves_watchdog = Observer()
-		self.saves_watchdog.schedule(self, self.path, recursive=False)
-		self.saves_watchdog.start()
+			# listener for window title change
+			self.window_title = None
+			self.window_listener = RepeatedTimer(0.1, self.window_title_listener)
 
-		# listener for window title change
-		self.window_title = None
-		self.window_listener = RepeatedTimer(0.1, self.window_title_listener)
+			# valuse for game state
+			self.active_run = False
+			self.loading_world = False
+			self.active_window = False
+			self.checking = False
 
-		# valuse for game state
-		self.active_run = False
-		self.loading_world = False
-		self.active_window = False
-		self.checking = False
-
-		# this is our world file instance
-		self.world = World(self.update_values)
+			# this is our world file instance
+			self.world = World(self.update_values)
 
 	# function that gets run on a new world files being made
 	def on_created(self, event):

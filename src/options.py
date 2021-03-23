@@ -1,7 +1,6 @@
 import sys
 import pathlib
 import json
-import time
 
 from sheet import is_google_sheet, get_credentials
 
