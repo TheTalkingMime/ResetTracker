@@ -274,6 +274,20 @@ class GoogleSheet(Sheet):
 			self.worksheet.update(range_start + ":" + range_end, [row])
 		except:
 			self.worksheet.append_row(row)
+	
+	def update_values(self, folder_id, world_id, values):
+		# API rate limit protection
+		while True:
+			error = False
+			try:
+				super().update_values(folder_id, world_id, values)
+			except gspread.exceptions.APIError:
+				error = True
+				print("api rate limit error, trying again in 15 seconds")
+			if not error:
+				return
+			else:
+				sleep(15)
 
 	def get_range_a1(self, start_x, start_y, end_x, end_y):
 		if (start_x == None or start_x < 1) and (start_y == None or start_y < 1):
@@ -297,9 +311,6 @@ class GoogleSheet(Sheet):
 		return a1_start + ":" + a1_end
 
 	def expand_sheet(self, width, height):
-		print(width, self.worksheet.col_count)
-		print(height, self.worksheet.row_count)
-
 		if width > self.worksheet.row_count:
 			missing_row = height - self.worksheet.row_count
 			self.worksheet.add_rows(missing_row)

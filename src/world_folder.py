@@ -10,7 +10,7 @@ from window import get_window_name
 from tracking import Parsed_Value
 
 class World_Folder(FileSystemEventHandler):
-	folder_id = 0
+	folder_id = -1
 	@staticmethod
 	def get_folder_id():
 		World_Folder.folder_id += 1
@@ -27,9 +27,16 @@ class World_Folder(FileSystemEventHandler):
 		# callback for all of the values
 		self.callback = callback
 
+		# this is our world file instance
+		self.world = World(self.update_values)
+
 		if injest:
+			self.world_id = 0
+			self.active_run = True
+			self.loading_world = True
 			for world in scandir(self.path):
-				print(world)
+				self.world.injest_world(world)
+				self.world_id += 1
 		else:
 			# id for the active world
 			self.world_id = -1
@@ -49,9 +56,6 @@ class World_Folder(FileSystemEventHandler):
 			self.loading_world = False
 			self.active_window = False
 			self.checking = False
-
-			# this is our world file instance
-			self.world = World(self.update_values)
 
 	# function that gets run on a new world files being made
 	def on_created(self, event):

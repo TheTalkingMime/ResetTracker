@@ -36,10 +36,10 @@ if __name__ == '__main__':
 
 	def update_values(folder_id, world_id, values):
 		for sheet in sheets:
-			try:
+			# try:
 				sheet.update_values(folder_id, world_id, values)
-			except:
-				pass
+			# except:
+			# 	pass
 
 	worlds = [ World_Folder(folder, update_values, options.get_injest()) for folder in options.get_worlds() ]
 

@@ -1,6 +1,7 @@
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from time import time_ns
+import os
 
 from stats import Stats
 from advancements import Advancements
@@ -39,6 +40,15 @@ class World(FileSystemEventHandler):
 		self.file_watchdog.schedule(self, path, recursive=False)
 		self.file_watchdog.start()
 		self.active = True
+	
+	def injest_world(self, path):
+		self.callback([
+			Parsed_Value(os.path.getctime(os.path.join(path, "datapacks")), "meta", "world created"),
+			Parsed_Value(os.path.getctime(os.path.join(path, "advancements")), "meta", "world loaded"),
+			Parsed_Value(os.path.getmtime(os.path.join(path, "advancements")), "meta", "run ended"),
+		])
+		self.stats.injest(os.path.join(path, "stats"))
+		self.advancements.injest(os.path.join(path, "advancements"))
 
 	def stop(self):
 		if not self.file_watchdog == None:
