@@ -125,6 +125,8 @@ class Sheet:
 
 		self.next_row = 0
 
+		self.orginize_columns()
+
 	def stop(self):
 		for row in range(len(self.rows)):
 			self.update_row(row)
@@ -139,8 +141,54 @@ class Sheet:
 			self.row_lines += [ self.get_next_row() for i in range(len(self.row_lines) + 1 - folder_id)]
 		return self.rows[folder_id]
 
+	# function template for updating a row on the sheet
 	def update_row(self, folder_id, world_id, column_name, value):
-		pass
+		raise NotImplementedError
+
+	def get_headers(self):
+		raise NotImplementedError
+
+	def get_range(self, start_x, start_y, end_x, end_y):
+		raise NotImplementedError
+
+	def set_range(self, start_x, start_y, end_x, end_y, data):
+		raise NotImplementedError
+
+	# function template for orginizing the rows on a sheet to match the headers we have
+	def orginize_columns(self):
+		headers = self.get_headers()
+	
+		current_headers = [ header if not header in header_aliases else header_aliases[header] for header in headers ]
+		
+		all_headers = list(dict.fromkeys(current_headers + Sheet.columns))
+
+		current_data = self.get_data(len(all_headers))
+
+		group_names = [group.name for group in Group.groups]
+
+		groups = [[] for i in range(len(group_names))]
+		no_group = []
+
+		for index, header in enumerate(all_headers):
+			if header in Sheet.columns:
+				groups[group_names.index(Group.find_host_group(header))].append((header, index))
+			else:
+				no_group.append((header, index))
+
+		for index, group in enumerate(groups):
+			def get_group_order(e):
+				g = Group.groups[index]
+				for i, item in enumerate(g.get_items()):
+					if e[0] == item.name:
+						return i
+				return 0
+
+			group = group.sort(key=get_group_order)
+		
+		remapped_data = [item for group in groups for item in group] + no_group
+		remapped_data = [[header, "-"] + current_data[index] for header, index in remapped_data ]
+
+		self.set_data(remapped_data)
 	
 	def push_row(self, folder_id):
 		self.update_row(folder_id)
@@ -170,24 +218,50 @@ class Sheet:
 
 class SpreadSheet(Sheet):
 	def __init__(self, filename):
-		super().__init__(filename)
 		self.workbook = openpyxl.load_workbook(filename)
 		self.worksheet = self.workbook.get_sheet_by_name('Raw Data')
+		super().__init__(filename)
 		self.next_row = self.worksheet.max_row + 1
 	
 	def update_row(self, folder_id):
 		row = self.rows[folder_id]
 		target_row = self.row_lines[folder_id]
 
-		for i in range(len(row)):
-			self.worksheet.cell(row=target_row, column=i + 1).value = row[i]
+		for column, value in enumerate(row):
+			self.worksheet.cell(row=target_row, column=column + 1).value = value
 		
+		self.workbook.save(self.sheet)
+
+	def get_headers(self):
+		headers = list(self.worksheet.rows)
+		if not len(headers) == 0:
+			headers = [cell.value for cell in headers[0]]
+		return headers
+
+	def get_data(self, columns):
+		data = [[cell.value if not cell.value == None else "" for cell in list(column)[2:]] for column in self.worksheet.iter_cols()]
+
+		if len(data) == 0:
+			row_count = 0
+		else:
+			row_count = len(data[0])
+
+		data += [[""] * row_count for i in range(columns - len(data))]
+		
+		return data
+
+	def set_data(self, data):
+		for column, i in enumerate(data):
+			for row, value in enumerate(i):
+				self.worksheet.cell(row=row + 1, column=column + 1).value = value
+
 		self.workbook.save(self.sheet)
 
 class GoogleSheet(Sheet):
 	def __init__(self, url, client):
-		super().__init__(client.open_by_url(url))
-		self.worksheet = self.sheet.worksheet("Raw Data")
+		sheet = client.open_by_url(url)
+		self.worksheet = sheet.worksheet("Raw Data")
+		super().__init__(sheet)
 		self.next_row = len(self.worksheet.get("A1:A"))
 
 	def update_row(self, folder_id):
@@ -200,3 +274,59 @@ class GoogleSheet(Sheet):
 			self.worksheet.update(range_start + ":" + range_end, [row])
 		except:
 			self.worksheet.append_row(row)
+
+	def get_range_a1(self, start_x, start_y, end_x, end_y):
+		if (start_x == None or start_x < 1) and (start_y == None or start_y < 1):
+			raise RuntimeError
+		elif start_x == None:
+			a1_start = gspread.utils.rowcol_to_a1(start_y, 1)[1:]
+		elif start_y == None:
+			a1_start = gspread.utils.rowcol_to_a1(1, start_x)[:-1]
+		else:
+			a1_start = gspread.utils.rowcol_to_a1(start_y, start_x)
+
+		if (end_x == None or end_x < 1) and (end_y == None or end_y < 1):
+			raise RuntimeError
+		elif end_x == None:
+			a1_end = gspread.utils.rowcol_to_a1(end_y, 1)[1:]
+		elif end_y == None:
+			a1_end = gspread.utils.rowcol_to_a1(1, end_x)[:-1]
+		else:
+			a1_end = gspread.utils.rowcol_to_a1(end_y, end_x)
+
+		return a1_start + ":" + a1_end
+
+	def expand_sheet(self, width, height):
+		print(width, self.worksheet.col_count)
+		print(height, self.worksheet.row_count)
+
+		if width > self.worksheet.row_count:
+			missing_row = height - self.worksheet.row_count
+			self.worksheet.add_rows(missing_row)
+
+		if height > self.worksheet.col_count:
+			missing_col = width - self.worksheet.col_count
+			self.worksheet.add_cols(missing_col)
+
+	def get_headers(self):
+		headers = self.worksheet.get("A1:" + gspread.utils.rowcol_to_a1(1, self.worksheet.col_count))
+		try:
+			return headers[0]
+		except:
+			return headers
+
+	def get_data(self, columns):
+		data = self.worksheet.batch_get([self.get_range_a1(i, 3, i, None) for i in range(1, self.worksheet.col_count + 1)])
+		data = [[row[0] if not len(row) == 0 else "" for row in column] + [""] * (self.worksheet.row_count - len(column)) for column in data]
+
+		data += [[""] * self.worksheet.row_count for i in range(columns - self.worksheet.col_count)]
+
+		return data
+
+	def set_data(self, data):
+		self.expand_sheet(len(data), len(data[0]))
+
+		self.worksheet.batch_update([{
+			"range": gspread.utils.rowcol_to_a1(1, index + 1) + ":" + gspread.utils.rowcol_to_a1(1, index + 1)[:-1],
+			"values": [ [ row ] for row in column ]
+		} for index, column in enumerate(data)], value_input_option="RAW")
