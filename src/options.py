@@ -4,16 +4,36 @@ import json
 
 from sheet import is_google_sheet, get_credentials
 
+# help_str = "\
+# Help:\n\n\
+# -h --help\tprint out this menu\n\
+# -v --version\tget the build version\n\
+# -w --worlds\tset the directory for your .minecraft/saves folder\n\
+# -c --credentials\tset the file that your credentials are located in\n\
+# -s --sheet\tset the url for your spreadsheet\n\
+# -o --options\tset the file that options are going to be save in\n\
+# -n --no-save\tflag to not save settings in options\n\
+# "
+
 help_str = "\
 Help:\n\n\
 -h --help\tprint out this menu\n\
 -v --version\tget the build version\n\
--w --worlds\tset the directory for your .minecraft/saves folder\n\
--c --credentials\tset the file that your credentials are located in\n\
--s --sheet\tset the url for your spreadsheet\n\
--o --options\tset the file that options are going to be save in\n\
--n --no-save\tflag to not save settings in options\n\
+\
+-w --world folder_location\tset the directory for your .minecraft/saves folder\n\
+-s --sheet sheet_location\tset the url for your spreadsheet\n\
+-c --credentials credential_file\tset the file that your credentials are located in\n\
+\
+-o --options (option_file)\tset the file that options are going to be save in. Not specifying a file will result in no file being made\n\
+\
+-b --background\trun without prompting for user input\n\
+-p --prompt\tforce prompts on all locations\n\
+-m --multiple\tmake prompts take multiple values\n\
+-n --no-save\tdont save new values to options file\n\
+-i --ingest\tflag to set mode to world injest\n\
 "
+
+version_str = "1.0.0"
 
 local_path = pathlib.Path(__file__).parent.parent
 
@@ -54,7 +74,7 @@ class Options:
 				print(help_str)
 				sys.exit(0)
 			elif opt in ("-v", "--version"):
-				print("0.1.0")
+				print(version_str)
 				sys.exit(0)
 			elif opt in ("-w", "--world"):
 				self.add_world_folder(arg)
