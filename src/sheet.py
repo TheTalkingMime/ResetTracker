@@ -7,6 +7,8 @@ import pathlib
 import json
 import sys
 
+import threading
+
 from time import time_ns
 from time import sleep
 
@@ -126,6 +128,8 @@ class Sheet:
 		self.next_row = 0
 
 		self.orginize_columns()
+
+		print("Saving at: " + sheet)
 
 	def stop(self):
 		for row in range(len(self.rows)):
@@ -261,8 +265,10 @@ class GoogleSheet(Sheet):
 	def __init__(self, url, client):
 		sheet = client.open_by_url(url)
 		self.worksheet = sheet.worksheet("Raw Data")
-		super().__init__(sheet)
+		super().__init__(url)
 		self.next_row = len(self.worksheet.get("A1:A"))
+
+		self.lock = threading.Lock()
 
 	def update_row(self, folder_id):
 		row = self.rows[folder_id]
@@ -276,18 +282,21 @@ class GoogleSheet(Sheet):
 			self.worksheet.append_row(row)
 	
 	def update_values(self, folder_id, world_id, values):
-		# API rate limit protection
-		while True:
-			error = False
-			try:
-				super().update_values(folder_id, world_id, values)
-			except gspread.exceptions.APIError:
-				error = True
-				print("api rate limit error, trying again in 15 seconds")
-			if not error:
-				return
-			else:
-				sleep(15)
+		# race condition protection
+		with self.lock:
+			# API rate limit protection
+			while True:
+				print(world_id, values)
+				error = False
+				try:
+					super().update_values(folder_id, world_id, values)
+				except gspread.exceptions.APIError:
+					error = True
+					print("api rate limit error, trying again in 15 seconds")
+				if not error:
+					return
+				else:
+					sleep(15)
 
 	def get_range_a1(self, start_x, start_y, end_x, end_y):
 		if (start_x == None or start_x < 1) and (start_y == None or start_y < 1):
