@@ -17,7 +17,6 @@ class World_Folder(FileSystemEventHandler):
 		return World_Folder.folder_id
 
 	def __init__(self, path, callback, injest):
-		#TODO: injest
 		# normalize the file path
 		print("Tracking at: " + path)
 		self.path = path
