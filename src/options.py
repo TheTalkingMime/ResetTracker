@@ -33,12 +33,13 @@ Help:\n\n\
 -i --ingest\tflag to set mode to world injest\n\
 "
 
-version_str = "1.0.0"
+version_str = "1.0.1"
 
-local_path = pathlib.Path(__file__).parent.parent
+local_path = pathlib.Path.cwd()
 
 def prompt_user(prompt, result_filter, pre_processes, exit_condition, multiple):
 	accumulator = []
+	print(prompt)
 	while True:
 		last = input("> ")
 		if exit_condition(last):
@@ -142,7 +143,7 @@ class Options:
 
 		# if we still havent found a worlds folder or we are prompting for them ask the user where the worlds folders are
 		if (self.prompt == None and len(self.worlds) == 0) or self.prompt:
-			worlds = self.prompt_user("Please enter each of the save folders you would like to read from. (press enter when you are done)",
+			worlds = prompt_user("Please enter each of the save folders you would like to read from. (press enter when you are done)",
 			                           lambda file: file.exists(), lambda file: pathlib.Path(file).expanduser(), lambda arg: arg == "", multiple)
 			for world in worlds:
 				self.add_world_folder(world)
@@ -151,7 +152,7 @@ class Options:
 			print("WARNING: no valid world folders specified")
 
 		if (self.prompt == None and len(self.sheets) == 0) or self.prompt:
-			sheets = self.prompt_user("Please enter the url or file path to the spreadsheets you would like to write to. (press enter when you are done)",
+			sheets = prompt_user("Please enter the url or file path to the spreadsheets you would like to write to. (press enter when you are done)",
 			                           lambda uri: is_google_sheet(uri) or pathlib.Path(uri).exists(), lambda arg: arg, lambda arg: arg == "", multiple)
 			for sheet in sheets:
 				self.add_sheet(sheet)
