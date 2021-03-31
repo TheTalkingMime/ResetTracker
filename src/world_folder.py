@@ -18,7 +18,7 @@ class World_Folder(FileSystemEventHandler):
 
 	def __init__(self, path, callback, injest):
 		# normalize the file path
-		print("Tracking at: " + path)
+		print("world folder added: " + path)
 		self.path = path
 
 		self.folder_id = World_Folder.get_folder_id()
