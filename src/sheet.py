@@ -270,33 +270,41 @@ class GoogleSheet(Sheet):
 
 		self.lock = threading.Lock()
 
+		self.queue = 0
+		self.queue_lock = threading.Lock()
+
 	def update_row(self, folder_id):
+		if not self.queue == 1:
+			return
+
 		row = self.rows[folder_id]
 		target_row = self.row_lines[folder_id]
 
 		range_start = gspread.utils.rowcol_to_a1(target_row, 1)
 		range_end = gspread.utils.rowcol_to_a1(target_row, len(row) + 1)
-		try:
-			self.worksheet.update(range_start + ":" + range_end, [row])
-		except:
-			self.worksheet.append_row(row)
+
+		success = False
+		while not success:
+			try:
+				self.worksheet.update(range_start + ":" + range_end, [row])
+				success = True
+			except gspread.exceptions.GSpreadException:
+				self.worksheet.append_row(row)
+				success = True
+			except gspread.exceptions.APIError:
+				print("api rate limit error, trying again in 15 seconds")
+				sleep(15)
+
 	
 	def update_values(self, folder_id, world_id, values):
+		with self.queue_lock:
+			self.queue += 1
+		
 		# race condition protection
 		with self.lock:
-			# API rate limit protection
-			while True:
-				print(world_id, values)
-				error = False
-				try:
-					super().update_values(folder_id, world_id, values)
-				except gspread.exceptions.APIError:
-					error = True
-					print("api rate limit error, trying again in 15 seconds")
-				if not error:
-					return
-				else:
-					sleep(15)
+			super().update_values(folder_id, world_id, values)
+			with self.queue_lock:
+				self.queue -= 1
 
 	def get_range_a1(self, start_x, start_y, end_x, end_y):
 		if (start_x == None or start_x < 1) and (start_y == None or start_y < 1):
