@@ -38,7 +38,7 @@ class World_Folder(FileSystemEventHandler):
 				self.world_id += 1
 		else:
 			# id for the active world
-			self.world_id = -1
+			self.world_id = 0
 			self.last_world_path = ""
 
 			# start watchdog for new minecraft worlds
