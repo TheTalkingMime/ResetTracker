@@ -7,7 +7,7 @@ import pathlib
 import json
 import sys
 
-import threading
+from threading import Lock, Thread
 
 from time import time_ns
 from time import sleep
@@ -118,7 +118,34 @@ class Sheet:
 	columns = Group.get_names()
 	column_count = len(columns)
 
+	sheets = []
+
+	@staticmethod
+	def push_values(folder_id, world_id, values):
+		print(folder_id, world_id, values)
+		for sheet in Sheet.sheets:
+			thread = Thread(target = sheet.update_values, args = (folder_id, world_id, values))
+			thread.start()
+
+	@staticmethod
+	def create_sheets(sheets, client):
+		threads = [Thread(target=Sheet.create_sheet, args=(sheet, client)) for sheet in sheets]
+		for thread in threads:
+			thread.start()
+		for thread in threads:
+			thread.join()
+
+	@staticmethod
+	def create_sheet(uri, client):
+		if is_google_sheet(uri):
+			if client == None:
+				print("ERROR: no client for google sheets")
+				sys.exit(2)
+			return GoogleSheet(uri, client)
+		return SpreadSheet(uri)
+
 	def __init__(self, sheet):
+		Sheet.sheets.append(self)
 		self.sheet = sheet
 		self.session_id = time_ns() // 1_000_000
 
@@ -129,7 +156,12 @@ class Sheet:
 
 		self.orginize_columns()
 
-		print("Saving at: " + sheet)
+		self.lock = Lock()
+
+		self.queue = 0
+		self.queue_lock = Lock()
+
+		print("sheet added: " + sheet)
 
 	def stop(self):
 		for row in range(len(self.rows)):
@@ -206,19 +238,26 @@ class Sheet:
 			pass
 
 	def update_values(self, folder_id, world_id, values):
-		row = self.get_active_row(folder_id)
-		last_world_id = row[2]
-		if not last_world_id == world_id:
-			if not last_world_id == None:
-				self.push_row(folder_id)
-			# set the meta data on this row
-			self.set_row_value(folder_id, "session id", self.session_id)
-			self.set_row_value(folder_id, "folder id", folder_id)
-			self.set_row_value(folder_id, "world id", world_id)
+		with self.queue_lock:
+			self.queue += 1
 
-		for value in values:
-			self.set_row_value(folder_id, value.name, value.value)
-		self.update_row(folder_id)
+		# race condition protection
+		with self.lock:
+			row = self.get_active_row(folder_id)
+			last_world_id = row[2]
+			if not last_world_id == world_id:
+				if not last_world_id == None:
+					self.push_row(folder_id)
+				# set the meta data on this row
+				self.set_row_value(folder_id, "session id", self.session_id)
+				self.set_row_value(folder_id, "folder id", folder_id)
+				self.set_row_value(folder_id, "world id", world_id)
+
+			for value in values:
+				self.set_row_value(folder_id, value.name, value.value)
+			self.update_row(folder_id)
+			with self.queue_lock:
+				self.queue -= 1
 
 class SpreadSheet(Sheet):
 	def __init__(self, filename):
@@ -268,11 +307,6 @@ class GoogleSheet(Sheet):
 		super().__init__(url)
 		self.next_row = len(self.worksheet.get("A1:A"))
 
-		self.lock = threading.Lock()
-
-		self.queue = 0
-		self.queue_lock = threading.Lock()
-
 	def update_row(self, folder_id):
 		if not self.queue == 1:
 			return
@@ -294,17 +328,6 @@ class GoogleSheet(Sheet):
 			except gspread.exceptions.APIError:
 				print("api rate limit error, trying again in 15 seconds")
 				sleep(15)
-
-	
-	def update_values(self, folder_id, world_id, values):
-		with self.queue_lock:
-			self.queue += 1
-		
-		# race condition protection
-		with self.lock:
-			super().update_values(folder_id, world_id, values)
-			with self.queue_lock:
-				self.queue -= 1
 
 	def get_range_a1(self, start_x, start_y, end_x, end_y):
 		if (start_x == None or start_x < 1) and (start_y == None or start_y < 1):
