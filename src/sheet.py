@@ -349,6 +349,14 @@ class GoogleSheet(Sheet):
 
 		data += [[""] * self.worksheet.row_count for i in range(columns - self.worksheet.col_count)]
 
+		def parse_value(value):
+			try:
+				return float(value)
+			except:
+				return value
+
+		data = [[ parse_value(cell) for cell in column ] for column in data]
+
 		return data
 
 	def set_data(self, data):
