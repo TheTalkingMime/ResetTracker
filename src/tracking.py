@@ -128,10 +128,10 @@ class Advancement(Trackable):
 		# TODO: something with done
 		# type 0 is get the min value
 		if self.track_type == 0:
-			return super().parse(int(min([datetime.strptime(criterion[0:19], "%Y-%m-%d %H:%M:%S").timestamp() for criterion in list(criteria.values())])) * 1000000)
+			return super().parse(int(min([datetime.strptime(criterion[0:19], "%Y-%m-%d %H:%M:%S").timestamp() for criterion in list(criteria.values())])) * 1000)
 		# type 1 is get the max value
 		elif self.track_type == 1:
-			return super().parse(int(max([datetime.strptime(criterion[0:19], "%Y-%m-%d %H:%M:%S").timestamp() for criterion in list(criteria.values())])) * 1000000)
+			return super().parse(int(max([datetime.strptime(criterion[0:19], "%Y-%m-%d %H:%M:%S").timestamp() for criterion in list(criteria.values())])) * 1000)
 		# type 2 gets the key with the samllest value
 		elif self.track_type == 2:
 			return super().parse(min([(criterion, datetime.strptime(value[0:19], "%Y-%m-%d %H:%M:%S").timestamp()) for criterion, value in list(criteria.items())], key=lambda x: x[1])[0])
@@ -142,7 +142,6 @@ class Advancement(Trackable):
 			if self.track_target == None:
 				raise ValueError(
 					"track_target in advancement trackable not defined for type 4 track_type")
-			# return super().parse(int(datetime.strptime(criteria[self.track_target][0:19], "%Y-%m-%d %H:%M:%S").timestamp() * 1000000))
 
 Trackable("meta", "session id")
 Trackable("meta", "folder id")
