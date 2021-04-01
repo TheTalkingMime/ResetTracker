@@ -368,7 +368,7 @@ class GoogleSheet(Sheet):
 
 	def get_data(self, columns):
 		data = self.worksheet.batch_get([self.get_range_a1(i, 3, i, None) for i in range(1, self.worksheet.col_count + 1)])
-		data = [[row[0] if not len(row) == 0 else "" for row in column] + [""] * (self.worksheet.row_count - len(column)) for column in data]
+		data = [[row[0] if not len(row) == 0 else "" for row in column] + [""] * (self.worksheet.row_count - len(column) - 2) for column in data]
 
 		data += [[""] * self.worksheet.row_count for i in range(columns - self.worksheet.col_count)]
 
