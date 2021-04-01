@@ -55,7 +55,7 @@ header_aliases = {
 	"Magma Block": "magma block mined",
 }
 
-local_path = pathlib.Path(__file__).parent.parent
+local_path = pathlib.Path.cwd()
 
 def is_google_sheet(sheet):
 	return urlparse(sheet).scheme != ""
