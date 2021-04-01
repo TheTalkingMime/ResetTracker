@@ -34,11 +34,7 @@ if __name__ == '__main__':
 	
 	Sheet.create_sheets(options.get_sheets(), client)
 	# sheets = [ create_sheet(sheet, client) for sheet in options.get_sheets() ]
-	print(Sheet.update_values)
 	worlds = [ World_Folder(folder, Sheet.push_values, options.get_injest()) for folder in options.get_worlds() ]
-
-	print(worlds)
-	print(Sheet.sheets)
 
 	if options.get_prompt():
 		import atexit

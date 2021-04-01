@@ -122,7 +122,6 @@ class Sheet:
 
 	@staticmethod
 	def push_values(folder_id, world_id, values):
-		print(folder_id, world_id, values)
 		for sheet in Sheet.sheets:
 			thread = Thread(target = sheet.update_values, args = (folder_id, world_id, values))
 			thread.start()
