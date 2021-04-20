@@ -2,7 +2,7 @@ import gspread
 import openpyxl
 
 from urllib.parse import urlparse
-import pathlib
+from pathlib import Path
 
 import json
 import sys
@@ -55,7 +55,7 @@ header_aliases = {
 	"Magma Block": "magma block mined",
 }
 
-local_path = pathlib.Path.cwd()
+local_path = Path.cwd()
 
 def is_google_sheet(sheet):
 	return urlparse(sheet).scheme != ""
@@ -66,40 +66,6 @@ def get_sheet_access(client, sheet):
 		return True
 	except:
 		return False
-
-def get_credentials(sheets, prompt):
-	urls = [sheet for sheet in sheets if urlparse(sheet).scheme != ""]
-	print("Credentials not found. please move credentials to exactly \"" + local_path.joinpath("credentials.json")
-            .absolute().as_posix() + "\" and press enter, or type in the path that the credentials file is located at.")
-	while True:
-		if prompt:
-			file = input("> ")
-		else:
-			path = local_path.joinpath("credentials.json").absolute()
-			sleep(5)
-
-		if file == "":
-			path = local_path.joinpath("credentials.json").absolute()
-
-		file = pathlib.Path(file)
-		file = file.expanduser()
-
-		if not file.exists():
-			continue
-
-		filename = file.as_posix()
-
-		try:
-			client = gspread.service_account(filename=filename)
-		except:
-			continue
-
-		if all(get_sheet_access(client, sheet) for sheet in urls):
-			return filename
-		else:
-			with file.open("r") as f:
-				client_email = json.load(f)["client_email"]
-				print("client couldnt access all target sheets. please make sure it is shared with " + client_email)
 
 def get_client(filename):
 	if filename == None:
@@ -119,6 +85,50 @@ class Sheet:
 	column_count = len(columns)
 
 	sheets = []
+
+	@staticmethod
+	def is_google_sheet(url):
+		try:
+			return "https://docs.google.com/spreadsheets/d/" in url
+		except:
+			return False
+
+	@staticmethod
+	def valid_sheet(uri):
+		try:
+			if Sheet.is_google_sheet():
+				return True
+			else:
+				# normailze input
+				uri = Path(uri)
+				# exists doesnt always reuturn a boolean
+				if uri.exists() == False:
+					return False
+				# if_file doesnt always reuturn a boolean
+				if uri.is_file() == False:
+					return False
+				# check to see if we can open the file
+				openpyxl.load_workbook(uri)
+				return True
+		except:
+			return False
+
+	@staticmethod
+	def sheet_access(url, client):
+		if client == None:
+			return False
+		try:
+			client.open_by_url(url)
+			return True
+		except:
+			return False
+	
+	@staticmethod
+	def get_credentials(sheet):
+		try:
+			return gspread.service_account(filename=sheet)
+		except:
+			return False
 
 	@staticmethod
 	def push_values(folder_id, world_id, values):

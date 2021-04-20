@@ -3,6 +3,8 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from time import time_ns
 from os import scandir
+from pathlib import Path
+
 
 from world import World
 from repeated_timer import RepeatedTimer
@@ -10,11 +12,26 @@ from window import get_window_name
 from tracking import Parsed_Value
 
 class World_Folder(FileSystemEventHandler):
+
 	folder_id = -1
 	@staticmethod
 	def get_folder_id():
 		World_Folder.folder_id += 1
 		return World_Folder.folder_id
+
+	@staticmethod
+	def valid_folder(file):
+		try:
+			# normailze input
+			file = Path(file)
+			# exists doesnt always reuturn a boolean
+			if file.exists() == False:
+				return False
+			if file.is_dir() == False:
+				return False
+			return True
+		except:
+			return False
 
 	def __init__(self, path, callback, injest):
 		# normalize the file path

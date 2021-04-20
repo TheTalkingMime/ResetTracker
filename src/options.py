@@ -1,8 +1,11 @@
 import sys
 import pathlib
 import json
+from time import sleep
+from pathlib import Path
 
-from sheet import is_google_sheet, get_credentials
+from sheet import Sheet
+from world_folder import World_Folder
 
 # help_str = "\
 # Help:\n\n\
@@ -52,13 +55,45 @@ def prompt_user(prompt, result_filter, pre_processes, exit_condition, multiple):
 		else:
 			print("invalid input")
 
+def get_client(sheets, prompt):
+	default_location = local_path.joinpath("credentials.json").absolute()
+	print("Credentials not found. please move credentials to exactly \"" + default_location.as_posix() +
+	      "\" and press enter, or type in the path that the credentials file is located at.")
+	while True:
+		if prompt:
+			file = input("> ")
+			if file == "":
+				path = default_location
+		else:
+			path = default_location
+			sleep(5)
+		
+		file = Path(file)
+		file = file.expanduser()
+
+		if not file.exists():
+			continue
+
+		client = Sheet.get_credentials(file.as_posix())
+
+		if client == False:
+			print("could not load credentials from that file. Please try it again")
+			continue
+		if not all(Sheet.sheet_access(sheet, client) for sheet in sheets):
+			with file.open("r") as f:
+				client_email = json.load(f)["client_email"]
+				print("target credentials couldnt access all target sheets. Please make sure all sheets are shared with " + client_email)
+			continue
+
+		return client
+
 class Options:
 	def __init__(self, opts):
 		# saved values
 		self.filename = None
 		self.worlds = []
 		self.sheets = []
-		self.credentials = None
+		self.client = None
 		self.options = {}
 
 		# options that modify how the code is going to run
@@ -80,7 +115,7 @@ class Options:
 			elif opt in ("-w", "--world"):
 				self.add_world_folder(arg)
 			elif opt in ("-c", "--credentials"):
-				self.set_credentials(arg)
+				self.set_client(arg)
 			elif opt in ("-s", "--sheet"):
 				self.add_sheet(arg)
 			elif opt in ("-o", "--options"):
@@ -126,7 +161,7 @@ class Options:
 				for sheet in value:
 					self.add_sheet(sheet)
 			elif key == "credentials":
-				self.set_credentials(value)
+				self.set_client(value)
 
 		# if we dont have a worlds folder then try and get the default one
 		if len(self.worlds) == 0 and not self.prompt:
@@ -143,8 +178,8 @@ class Options:
 
 		# if we still havent found a worlds folder or we are prompting for them ask the user where the worlds folders are
 		if (self.prompt == None and len(self.worlds) == 0) or self.prompt:
-			worlds = prompt_user("Please enter each of the save folders you would like to read from. (press enter when you are done)",
-			                           lambda file: file.exists(), lambda file: pathlib.Path(file).expanduser(), lambda arg: arg == "", multiple)
+			worlds = prompt_user("Please enter each of the save folders you would like to read from." + " (press enter when you are done)" if multiple else "",
+                            World_Folder.valid_folder, lambda file: pathlib.Path(file).expanduser(), lambda arg: arg == "", multiple)
 			for world in worlds:
 				self.add_world_folder(world)
 
@@ -152,19 +187,32 @@ class Options:
 			print("WARNING: no valid world folders specified")
 
 		if (self.prompt == None and len(self.sheets) == 0) or self.prompt:
-			sheets = prompt_user("Please enter the url or file path to the spreadsheets you would like to write to. (press enter when you are done)",
-			                           lambda uri: is_google_sheet(uri) or pathlib.Path(uri).exists(), lambda arg: arg, lambda arg: arg == "", multiple)
+			sheets = prompt_user("Please enter the url or file path to the spreadsheet you would like to write to." + " (press enter when you are done)" if multiple else "",
+                            lambda uri: Sheet.valid_sheet(uri), lambda arg: arg, lambda arg: arg == "", multiple)
 			for sheet in sheets:
 				self.add_sheet(sheet)
 
 		if len(self.sheets) == 0:
 			print("WARNING: no valid sheets specified")
 
-		if any(is_google_sheet(sheet) for sheet in self.sheets):
-			if self.credentials == None or self.prompt:
-				self.set_credentials(get_credentials(self.sheets, not self.prompt == False))
-			if self.credentials == None:
+		google_sheets = [sheet for sheet in self.sheets if Sheet.is_google_sheet(sheet)]
+		if not len(google_sheets) == 0:
+			if self.client == None or self.prompt:
+				self.set_client(get_client(google_sheets, not self.prompt == False))
+			if self.client == None:
 				print("ERROR: no valid credentials specified")
+				sys.exit(2)
+		
+		if self.client == None:
+			default_location = local_path.joinpath("credentials.json").absolute()
+			while self.client == None:
+				if self.prompt:
+					file = input("> ")
+				else:
+					sleep(1)
+
+				if file == "":
+					pass
 
 		self.save()
 
@@ -178,15 +226,22 @@ class Options:
 			self.worlds.append(file.joinpath("saves/").absolute().as_posix())
 
 	def add_sheet(self, sheet):
-		file = pathlib.Path(sheet)
-		if not file.exists() and not is_google_sheet(sheet):
+		if not Sheet.is_google_sheet(sheet) and not pathlib.Path(sheet).exists():
 			return
 		self.sheets.append(sheet)
 
-	def set_credentials(self, credential):
-		if not self.credentials == None:
-			print("WARNING: two sheets credential provided")
-		self.credentials = credential
+	def set_client(self, credential):
+		if not self.client == None:
+			print("WARNING: two sheet credential provided defaulting to second one")
+		self.client = credential
+
+	def check_credentials(self):
+		google_sheets = [
+				sheet for sheet in self.sheets if Sheet.is_google_sheet(sheet)]
+		if not len(google_sheets) == 0:
+			if self.client == None or self.prompt:
+				pass
+		pass
 
 	def get_worlds(self):
 		return self.worlds
@@ -194,8 +249,8 @@ class Options:
 	def get_sheets(self):
 		return self.sheets
 
-	def get_credentials(self):
-		return self.credentials
+	def get_client(self):
+		return self.client
 
 	def get_injest(self):
 		return self.injest
@@ -209,7 +264,7 @@ class Options:
 		obj = {
 			"worlds": self.worlds,
 			"sheets": self.sheets,
-			"credentials": self.credentials
+			"credentials": self.client
 		}
 		with self.filename.open("w") as f:
 			json.dump(obj, f)

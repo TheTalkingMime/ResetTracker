@@ -30,7 +30,7 @@ if __name__ == '__main__':
 
 	options = Options(opts)
 	
-	client = get_client(options.get_credentials())
+	client = get_client(options.get_client())
 	
 	Sheet.create_sheets(options.get_sheets(), client)
 	# sheets = [ create_sheet(sheet, client) for sheet in options.get_sheets() ]
