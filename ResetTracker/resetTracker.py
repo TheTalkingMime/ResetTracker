@@ -1,148 +1,114 @@
-import sys
-import getopt
-import pathlib
 import json
 
-from saves import valid_minecraft_folder, Saves
-from sheet import Sheet
+import sys
+import time
+from datetime import datetime
 
-# option file manager
+import gspread
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+from Sheets import push_data
+from Buffer import Buffer
 
-
-class Options:
-	def __init__(self, file, no_save):
-		self.file = file
-		self.no_save = no_save
-		try:
-			with self.file.open("r") as f:
-				self.values = json.load(f)
-		except:
-			self.values = {}
-
-	def has(self, opt):
-		return opt in self.values and not self.get(opt) == None
-
-	def get(self, opt):
-		return self.values.get(opt) if not self.values.get(opt) == "" else None
-
-	def set(self, opt, value):
-		self.values[opt] = value
-		if not self.no_save:
-			with self.file.open("w") as f:
-				f.write(json.dumps(self.values))
-		return value
+# TO DO
+# Conditional Formatting on raw data
+# Update raw data after every pause
+#
 
 
-if __name__ == '__main__':
-	# options:
-	# -h --help
-	# -w --worlds
-	# -c --credentials
-	# -s --sheet
-	# -o --options
-	# -n --no-save
-	try:
-		opts, args = getopt.getopt(sys.argv, "hw:c:s:o:n", [
-		                           "help", "worlds=", "credentials=", "sheet=", "options:", "no-save"])
-	except getopt.GetoptError:
-		sys.exit(2)
-		print('error getting options')
+class Saves(FileSystemEventHandler):
+    buffer = None
+    sessionStart = None
+    buffer_observer = None
+    prev = None
+    # queue = []
 
-	local_path = pathlib.Path(__file__).parent.parent
+    def on_created(self, event):
+        src_path = event.src_path
 
-	options_file = None
-	world_folder = None
-	credentials_file = None
-	sheet_link = None
-	no_save = False
+        if not event.is_directory:
+            return
+        if self.sessionStart == None:
+            self.sessionStart = datetime.now()
 
-	for opt, arg in opts:
-		if opt in ("-h", "--help"):
-			# TODO: print help string
-		  sys.exit(0)
-		if opt in ("-o", "--options"):
-			options_file = pathlib.Path(arg)
-		if opt in ("-w", "--worlds"):
-			world_folder = pathlib.Path(arg)
-		if opt in ("-c", "--credentials"):
-			credentials_file = pathlib.Path(arg)
-		if opt in ("-s", "--sheet"):
-			sheet_link = arg
-		if opt in ("-n", "--no-save"):
-			no_save = True
+        print("New world created", src_path)
+        if self.buffer_observer != None:
+            self.buffer.stop()
+            self.buffer_observer.stop()
+            if self.buffer.stats.getRun()[0] != None:
+                push_data(self.buffer.getRun())
+                # new_queue = []
+                # for i in range(0, len(self.queue)):
+                #     try:
+                #         push_data(self.queue[i])
+                #     except:
+                #         print("failed to push", self.queue[i])
+                #         print("will try again next time")
+                #         new_queue.append(self.queue[i])
+                # self.queue = new_queue
+        self.buffer = Buffer()
+        self.buffer_observer = Observer()
+        self.buffer_observer.schedule(self.buffer, src_path, recursive=False)
 
-	# get out options file
-	if options_file == None:
-		options_file = local_path.joinpath("defualt_options.json").absolute()
-	else:
-		if not options_file.exists():
-			print("specified options folder does not exists!")
-			sys.exit(2)
+        try:
+            self.buffer_observer.start()
+        except Exception as e:
+            pass
 
-	options = Options(options_file, no_save)
+    def getTotalTime(self):
+        return (self.buffer.achievements.endTime - self.sessionStart).total_seconds()
 
-	# if we dont have a world folder set see if we can load it from the options file, if that doesnt work then try the default, if that doenst work ask the user
-	if world_folder == None:
-		# see if we have a saved world_folder
-		if options.has("world_folder"):
-			world_folder = pathlib.Path(options.get("world_folder"))
-		# try the default .minecraft locaton
-		else:
-			# get the default .minecraft folder for all othe the different operating systems
-			if sys.platform.startswith("win32"):
-				world_folder = pathlib.Path.home().joinpath("Appdata/.minecraft")
-			elif sys.platform.startswith("linux"):
-				world_folder = pathlib.Path.home().joinpath(".minecraft")
-			elif sys.platform.startswith("darwin"):
-				world_folder = pathlib.Path.home().joinpath(
-					"Library/Application Support/minecraft")
 
-		# ask the user for the file path as a last restort
-		while world_folder == None or not world_folder.exists() or not valid_minecraft_folder(world_folder):
-			world_folder = pathlib.Path(
-				input(".minecraft not found please input .minecraft location:\n> "))
-			world_folder = world_folder.expanduser()
-		# save the path in the options file
-		options.set("world_folder", world_folder.absolute().as_posix())
-	else:
-		if not world_folder.exists() or valid_minecraft_folder(world_folder):
-			print("specified .minecraft folder does not exist!")
-			sys.exit(2)
+if __name__ == "__main__":
+    try:
+        settings_file = open("settings.json")
+        settings = json.load(settings_file)
+        settings_file.close()
+    except Exception as e:
+        print(e)
+        print(
+            "Could not find settings.json, make sure you have the file in the same directory as the exe, and named exactly 'settings.json'"
+        )
+        time.sleep(600)
 
-	sheet = Sheet()
+    path = settings["path"]
+    event_handler = Saves()
+    savesObserver = Observer()
+    savesObserver.schedule(event_handler, path, recursive=False)
 
-	if credentials_file == None:
-		# see if we have a saved credentials file
-		if options.has("credentials_file"):
-			credentials_file = pathlib.Path(options.get("credentials_file"))
+    while True:
+        try:
+            savesObserver.schedule(event_handler, settings["path"], recursive=False)
+            savesObserver.start()
+        except Exception as e:
+            settings["path"] = input("Path to saves directory:")
+            settings_file = open("settings.json", "w")
+            json.dump(settings, settings_file)
+            settings_file.close()
+        else:
+            break
 
-		# wait for the file to show up or ask the user for the path
-		while credentials_file == None or not credentials_file.exists() or not sheet.load_credentials(credentials_file):
-			path = input("Credentials not found. please move credentials to exactly \"" + local_path.joinpath("credentials.json")
-			             .absolute().as_posix() + "\" and press enter, or type in the path that the credentials file is located at.\n> ")
-			if path == "":
-				path = local_path.joinpath("credentials.json").absolute()
-			credentials_file = pathlib.Path(path)
-			credentials_file = credentials_file.expanduser()
+    print("Tracking...")
+    print("Type 'quit' when you are done")
+    live = True
 
-		# save the credentials_file location
-		options.set("credentials_file", credentials_file.absolute().as_posix())
-	else:
-		if not credentials_file.exists() and not sheet.load_credentials(credentials_file):
-			print("specified credentials file does not exist!")
-			sys.exit(2)
+    try:
+        while live:
+            try:
+                val = input("")
+            except:
+                val = ""
+            if (val == "help") or (val == "?"):
+                print("there is literally one other command and it's quit")
+            if (val == "stop") or (val == "quit"):
+                print("Stopping...")
+                try:
+                    push_data(event_handler.buffer.getRun())
+                except:
+                    pass
+                live = False
+            time.sleep(1)
 
-	if sheet_link == None:
-		# see if we have a saved sheet
-		if options.has("sheet"):
-			sheet_link = options.get("sheet")
-		# ask the user for the sheet as a last restort
-		while sheet_link == None or not sheet.set_sheet(sheet_link):
-			sheet_link = options.set("sheet", input(
-				"what is the sheet that will be used for the calcualtions: \n> "))
-	else:
-		if not sheet.set_sheet(sheet_link):
-			print("no access to target spreadsheet!")
-			sys.exit(2)
-
-	saves = Saves(world_folder, sheet.update_values)
+    finally:
+        savesObserver.stop()
+        savesObserver.join()
