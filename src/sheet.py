@@ -88,10 +88,7 @@ class Sheet:
 
 	@staticmethod
 	def is_google_sheet(url):
-		try:
-			return "https://docs.google.com/spreadsheets/d/" in url
-		except:
-			return False
+		return urlparse(sheet).scheme != ""
 
 	@staticmethod
 	def valid_sheet(uri):
