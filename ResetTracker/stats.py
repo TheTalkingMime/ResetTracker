@@ -36,7 +36,8 @@ class Stats(FileSystemEventHandler):
             stats = json.load(stats_file)
             stats_file.close()
         except Exception as e:
-            pass
+            print("Failed to open stats file")
+            return
         stats = stats["stats"]
         self.this_run[0] = stats[self.checks[0][0]][self.checks[0][1]]
         for idx in range(len(self.checks)):

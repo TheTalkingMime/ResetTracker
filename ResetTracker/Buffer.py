@@ -10,6 +10,7 @@ class Buffer(FileSystemEventHandler):
     s_observer = None
     stats = None
     achievements = None
+    path = None
 
     def __init__(self):
 
@@ -17,6 +18,7 @@ class Buffer(FileSystemEventHandler):
         self.stats = Stats(self.achievements)
 
     def on_created(self, event):
+        self.path = event.src_path
         if not event.is_directory:
             return
 

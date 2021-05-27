@@ -2,6 +2,7 @@ import gspread
 from datetime import datetime
 import time
 import json
+# from nbt import nbt
 
 scope = [
     "https://spreadsheets.google.com/feeds​",
@@ -19,7 +20,8 @@ except Exception as e:
     print(
         "Could not find settings.json, make sure you have the file in the same directory as the exe, and named exactly 'settings.json'"
     )
-    time.sleep(600)
+    wait = input("")
+
 settings = json.load(settings_file)
 settings_file.close()
 try:
@@ -29,7 +31,8 @@ except Exception as e:
     print(
         "Could not find credentials.json, make sure you have the file in the same directory as the exe, and named exactly 'credentials.json'"
     )
-    time.sleep(600)
+    wait = input("")
+
 
 while True:
     try:
