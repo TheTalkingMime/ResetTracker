@@ -2,6 +2,8 @@ import gspread
 from datetime import datetime
 import time
 import json
+import copy
+
 # from nbt import nbt
 
 scope = [
@@ -59,15 +61,30 @@ if statsSheet.get(colorCell)[0][0] == "Gray":
 else:
     statsSheet.update(colorCell, "Gray")
 pushedLines = 0
+cfgStartCol = "A"
+cfgStartRow = 6
+columns = int(statsSheet.get("B2")[0][0])
+rows = int(statsSheet.get("B3")[0][0])
+pushCol = statsSheet.get("D2")[0][0]
+pushRow = statsSheet.get("D3")[0][0]
+config = statsSheet.get(
+    cfgStartCol
+    + str(cfgStartRow)
+    + ":"
+    + chr(ord(cfgStartCol) + columns - 1)
+    + str(cfgStartRow + rows - 1),
+    value_render_option="FORMULA",
+)
+print("Initial config", config)
 
 
 def push_data(data):
     global pushedLines
     if data != None:
         print(data)
-        dataSheet.insert_row(
-            [str(datetime.now())] + data,
-            index=2,
+        dataSheet.insert_rows(
+            [[str(datetime.now())] + data],
+            row=2,
             value_input_option="USER_ENTERED",
         )
 
@@ -75,6 +92,11 @@ def push_data(data):
         endColumn1 = ord("A") + (endColumn // ord("A")) - 1
         endColumn2 = ord("A") + ((endColumn - ord("A")) % 26)
         endColumn = chr(endColumn1) + chr(endColumn2)
+
+        pushedLines += 1
+    else:
+        print("Data was empty didn't push")
+    if pushedLines == 1:
         dataSheet.format(
             "A2:" + endColumn + "2",
             {
@@ -85,12 +107,8 @@ def push_data(data):
                 }
             },
         )
-        pushedLines += 1
-    else:
-        print("Data was empty didn't push")
-    if pushedLines == 1:
-        initialize_session()
     update_session()
+    print("done")
 
 
 def get_sec(time_str):
@@ -108,10 +126,12 @@ def initialize_session():
     pushCol = statsSheet.get("D2")[0][0]
     pushRow = statsSheet.get("D3")[0][0]
 
-    config = getConfig(cell_list=False)
+    init_config = getConfig(cell_list=False)
 
     statsSheet.insert_row([""], index=int(pushRow))
-    statsSheet.insert_rows(config, row=int(pushRow), value_input_option="USER_ENTERED")
+    statsSheet.insert_rows(
+        init_config, row=int(pushRow), value_input_option="USER_ENTERED"
+    )
 
     gc.request(
         "post",
@@ -149,22 +169,6 @@ def update_session():
 
 
 def getConfig(cell_list=True):
-    cfgStartCol = "A"
-    cfgStartRow = 6
-    columns = int(statsSheet.get("B2")[0][0])
-    rows = int(statsSheet.get("B3")[0][0])
-    pushCol = statsSheet.get("D2")[0][0]
-    pushRow = statsSheet.get("D3")[0][0]
-
-    config = statsSheet.get(
-        cfgStartCol
-        + str(cfgStartRow)
-        + ":"
-        + chr(ord(cfgStartCol) + columns - 1)
-        + str(cfgStartRow + rows - 1),
-        value_render_option="FORMULA",
-    )
-
     if cell_list:
         result = statsSheet.range(
             pushCol
@@ -174,22 +178,23 @@ def getConfig(cell_list=True):
             + str(int(pushRow) + rows - 1)
         )
     else:
-        result = config
+        result = copy.deepcopy(config)
 
-    for i in range(len(config)):
-        for j in range(len(config[i])):
-            if type(config[i][j] == str):
+    config_copy = copy.deepcopy(config)
+    config_copy[0][0].replace("~", str(1 + pushedLines)).replace("'=", "=")
+    for i in range(len(config_copy)):
+        for j in range(len(config_copy[i])):
+            if type(config_copy[i][j] == str):
                 if cell_list:
                     result[(i * columns) + j].value = (
-                        config[i][j]
+                        config_copy[i][j]
                         .replace("~", str(1 + pushedLines))
                         .replace("'=", "=")
                     )
                 else:
                     result[i][j] = (
-                        config[i][j]
+                        config_copy[i][j]
                         .replace("~", str(1 + pushedLines))
                         .replace("'=", "=")
                     )
-
     return result
