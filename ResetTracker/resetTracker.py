@@ -29,17 +29,14 @@ try:
         def on_created(self, event):
             src_path = event.src_path
 
-            if not event.is_directory:
-                return
             if self.sessionStart == None:
                 self.sessionStart = datetime.now()
 
-            print("New world created", src_path)
             if self.buffer_observer != None:
                 self.buffer.stop()
                 self.buffer_observer.stop()
                 if self.buffer.stats.getRun()[0] != None:
-                    print(self.buffer.path)
+                    # print(self.buffer.path)
                     push_data(self.buffer.getRun())
                     # new_queue = []
                     # for i in range(0, len(self.queue)):
@@ -50,6 +47,13 @@ try:
                     #         print("will try again next time")
                     #         new_queue.append(self.queue[i])
                     # self.queue = new_queue
+
+            self.buffer_observer = None
+
+            if not event.is_directory:
+                return
+            print("New world created", src_path)
+
             self.buffer = Buffer()
             self.buffer_observer = Observer()
             self.buffer_observer.schedule(self.buffer, src_path, recursive=False)

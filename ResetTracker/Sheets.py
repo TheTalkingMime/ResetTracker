@@ -75,7 +75,6 @@ config = statsSheet.get(
     + str(cfgStartRow + rows - 1),
     value_render_option="FORMULA",
 )
-print("Initial config", config)
 
 
 def push_data(data):
@@ -108,7 +107,7 @@ def push_data(data):
             },
         )
     update_session()
-    print("done")
+    # print("done")
 
 
 def get_sec(time_str):
