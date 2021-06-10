@@ -31,6 +31,7 @@ class Stats(FileSystemEventHandler):
         self.advancements = advancements
 
     def on_modified(self, event):
+        print("stats updated")
         try:
             stats_file = open(event.src_path)
             stats = json.load(stats_file)
@@ -53,7 +54,6 @@ class Stats(FileSystemEventHandler):
 
     def getIgt(self):
         if self.this_run[0] != None:
-            self.pulled = True
             return int(self.this_run[0])
         return None
 

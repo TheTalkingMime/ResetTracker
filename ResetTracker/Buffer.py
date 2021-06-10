@@ -25,6 +25,7 @@ class Buffer(FileSystemEventHandler):
         if event.src_path[-5:] == "stats":
             self.s_observer = Observer()
             self.s_observer.schedule(self.stats, event.src_path, recursive=False)
+            print("Tracking stats: ", event.src_path)
             self.s_observer.start()
 
         if event.src_path[-12:] == "advancements":
@@ -34,6 +35,7 @@ class Buffer(FileSystemEventHandler):
                 event.src_path,
                 recursive=False,
             )
+            print("Tracking adv: ", event.src_path)
             self.a_observer.start()
 
     def stop(self):
@@ -43,7 +45,7 @@ class Buffer(FileSystemEventHandler):
             self.a_observer.stop()
 
     def getRun(self):
-        if self.stats.getRun()[0] == None:
-            return None
+        # if self.stats.getRun()[0] == None:
+        #     return None
         if self.achievements != None and self.stats != None:
             return self.achievements.getRun() + self.stats.getRun()
