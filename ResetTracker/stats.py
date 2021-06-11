@@ -1,7 +1,5 @@
 from watchdog.events import FileSystemEventHandler
-import time
 import json
-from datetime import datetime
 
 
 class Stats(FileSystemEventHandler):
@@ -23,15 +21,22 @@ class Stats(FileSystemEventHandler):
         ("minecraft:killed", "minecraft:iron_golem"),  # for identifying village
         ("minecraft:mined", "minecraft:magma_block"),  # for identifying shipwreck
         ("minecraft:crafted", "minecraft:wooden_axe"),  # for identifying shipwreck
+        ("minecraft:custom", "minecraft:swim_one_cm"),
+        ("minecraft:custom", "minecraft:deaths"),
+        ("minecraft:custom", "minecraft:time_since_death"),
+        ("minecraft:custom", "minecraft:traded_with_villager"),
+        ("minecraft:killed", "minecraft:enderman"),
+        ("minecraft:crafted", "minecraft:shield"),
+        ("minecraft:crafted", "minecraft:bucket"),
+        ("minecraft:picked_up", "minecraft:ender_eye"),
     ]
     this_run = None
 
     def __init__(self, advancements):
-        self.this_run = [None] * (len(self.checks) + 1)
+        self.this_run = [None] * (len(self.checks))
         self.advancements = advancements
 
     def on_modified(self, event):
-        print("stats updated")
         try:
             stats_file = open(event.src_path)
             stats = json.load(stats_file)

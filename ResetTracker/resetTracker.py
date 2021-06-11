@@ -1,17 +1,16 @@
-from Sheets import initialize_session
-import traceback
-
 try:
+    import traceback
+    import nbt
+
     import json
 
-    import sys
     import time
     from datetime import datetime
 
-    import gspread
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
     from Sheets import push_data
+    from Sheets import initialize_session
     from Buffer import Buffer
 
     # TO DO
@@ -24,10 +23,10 @@ try:
         sessionStart = None
         buffer_observer = None
         prev = None
+        src_path = None
         # queue = []
 
         def on_created(self, event):
-            src_path = event.src_path
 
             if self.sessionStart == None:
                 self.sessionStart = datetime.now()
@@ -37,7 +36,11 @@ try:
                 self.buffer_observer.stop()
                 if self.buffer.stats.getRun()[0] != None:
                     # print(self.buffer.path)
-                    push_data(self.buffer.getRun())
+                    try:
+                        push_data(self.buffer.getRun() + [self.getSeed()])
+                    except Exception as e:
+                        print("Failed to push data, will still continue")
+                        print(e)
                     # new_queue = []
                     # for i in range(0, len(self.queue)):
                     #     try:
@@ -52,11 +55,13 @@ try:
 
             if not event.is_directory:
                 return
-            print("New world created", src_path)
+
+            self.src_path = event.src_path
+            print("New world created", self.src_path)
 
             self.buffer = Buffer()
             self.buffer_observer = Observer()
-            self.buffer_observer.schedule(self.buffer, src_path, recursive=False)
+            self.buffer_observer.schedule(self.buffer, self.src_path, recursive=False)
 
             try:
                 self.buffer_observer.start()
@@ -67,6 +72,16 @@ try:
             return (
                 self.buffer.achievements.endTime - self.sessionStart
             ).total_seconds()
+
+        def getSeed(self):
+            try:
+                nbtfile = nbt.NBTFile(self.src_path + "\\level.dat", "rb")
+                seed = nbtfile["Data"]["WorldGenSettings"]["seed"]
+                seed = "'" + str(seed)
+            except:
+                print("Failed to get seed")
+                seed = None
+            return seed
 
     if __name__ == "__main__":
         try:
@@ -84,6 +99,7 @@ try:
         event_handler = Saves()
         savesObserver = Observer()
         savesObserver.schedule(event_handler, path, recursive=False)
+        initialize_session()
 
         while True:
             try:
@@ -96,7 +112,6 @@ try:
                 settings_file.close()
             else:
                 break
-        initialize_session()
         print("Tracking...")
         print("Type 'quit' when you are done")
         live = True
@@ -112,7 +127,9 @@ try:
                 if (val == "stop") or (val == "quit"):
                     print("Stopping...")
                     try:
-                        push_data(event_handler.buffer.getRun())
+                        push_data(
+                            event_handler.buffer.getRun() + [event_handler.getSeed()]
+                        )
                     except:
                         pass
                     live = False

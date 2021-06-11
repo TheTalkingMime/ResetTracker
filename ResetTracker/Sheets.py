@@ -1,10 +1,7 @@
 import gspread
 from datetime import datetime
-import time
 import json
 import copy
-
-# from nbt import nbt
 
 scope = [
     "https://spreadsheets.google.com/feeds​",
@@ -91,7 +88,6 @@ def push_data(data):
         endColumn1 = ord("A") + (endColumn // ord("A")) - 1
         endColumn2 = ord("A") + ((endColumn - ord("A")) % 26)
         endColumn = chr(endColumn1) + chr(endColumn2)
-
         pushedLines += 1
     else:
         print("Data was empty didn't push")
