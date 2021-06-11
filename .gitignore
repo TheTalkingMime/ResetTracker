@@ -139,3 +139,17 @@ cython_debug/
 
 credentials.json
 defualt_options.json
+ResetTracker/Sheets.py
+ResetTracker/credentials1.json
+ResetTracker/settings.json
+ResetTracker/test.py
+ResetTracker/stats.py
+ResetTracker/__init__.py
+ResetTracker/chunk.py
+ResetTracker/nbt.py
+ResetTracker/region.py
+ResetTracker/world.py
+ResetTracker/seed.py
+ResetTracker/settings.json
+ResetTracker/seed.py
+ResetTracker/.vscode/launch.json
