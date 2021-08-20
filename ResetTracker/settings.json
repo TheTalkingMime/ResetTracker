@@ -1,1 +1,8 @@
-{"path": "PATH", "spreadsheet-link": "LINK"}
+{
+  "path": ["PATH"],
+  "spreadsheet-link": "LINK",
+  "instances": 0,
+  "threshold": 6,
+  "filter_mult": 1.5,
+  "filter_static": 90
+}
