@@ -1,9 +1,8 @@
 import datetime
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
-
 from watchdog.events import FileSystemEventHandler
 
 
@@ -24,15 +23,18 @@ class Achievements(FileSystemEventHandler):
         self.this_run = [None] * (len(self.checks) + 1)
         self.endTime = datetime.now()
         self.path = None
+        self.pauses = 0
 
     def on_modified(self, event):
         self.path = event.src_path
 
     def checkAdvancements(self, igt):
+        igt = igt / 20
         self.endTime = datetime.now()
-
+        self.pauses += 1
         if self.startTime == None:
-            self.startTime = datetime.now()
+            # print("Setting start time")
+            self.startTime = datetime.now() - timedelta(seconds=igt)
 
         try:
             achievements_file = open(self.path)
@@ -44,18 +46,6 @@ class Achievements(FileSystemEventHandler):
             time.sleep(0.1)
             self.checkAdvancements(igt)
             return
-
-        if (
-            "minecraft:adventure/adventuring_time" in achievements
-            and "criteria" in achievements["minecraft:adventure/adventuring_time"]
-        ):
-            temp = min(
-                achievements["minecraft:adventure/adventuring_time"][
-                    "criteria"
-                ].values()
-            )
-            temp = temp[0:19]
-            self.startTime = datetime.strptime(temp, "%Y-%m-%d %H:%M:%S")
 
         if self.endTime < self.startTime:
             print("endTime was before startTime, setting endTime equal to start...")
@@ -69,7 +59,6 @@ class Achievements(FileSystemEventHandler):
         )
 
         if igt != None:
-            igt = igt / 20
             offset = (self.endTime - self.startTime).total_seconds() - (igt)
             for idx in range(len(self.checks)):
                 if (

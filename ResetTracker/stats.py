@@ -35,6 +35,19 @@ class Stats(FileSystemEventHandler):
     def __init__(self, advancements):
         self.this_run = [None] * (len(self.checks))
         self.advancements = advancements
+        self.pauses = 0
+        try:
+            settings_file = open("settings.json")
+            settings = json.load(settings_file)
+            settings_file.close()
+            self.threshold = settings["threshold"]
+            # print("Set threshold to", self.threshold)
+        except Exception as e:
+            print(e)
+            print(
+                "Could not find settings.json, make sure you have the file in the same directory as the exe, and named exactly 'settings.json'"
+            )
+            wait = input("")
 
     def on_modified(self, event):
         try:
@@ -46,7 +59,9 @@ class Stats(FileSystemEventHandler):
             return
         stats = stats["stats"]
         self.this_run[0] = stats[self.checks[0][0]][self.checks[0][1]]
-        for idx in range(len(self.checks)):
+        if self.this_run[0] <= self.threshold:
+            return  # Prevents stats being read early from multi instances
+        for idx in range(1, len(self.checks)):
             if (
                 self.checks[idx][0] in stats
                 and self.checks[idx][1] in stats[self.checks[idx][0]]

@@ -1,22 +1,30 @@
+from pyasn1.type.univ import Null
+
+
 try:
     import traceback
     import nbt
-
     import json
-
+    import csv
     import time
     from datetime import datetime
-
+    import threading
+    from Sheets import main, setup
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer
-    from Sheets import push_data
-    from Sheets import initialize_session
     from Buffer import Buffer
 
-    # TO DO
-    # Conditional Formatting on raw data
-    # Update raw data after every pause
-    #
+    statsCsv = "stats.csv"
+    try:
+        settings_file = open("settings.json")
+        settings = json.load(settings_file)
+        settings_file.close()
+    except Exception as e:
+        print(e)
+        print(
+            "Could not find settings.json, make sure you have the file in the same directory as the exe, and named exactly 'settings.json'"
+        )
+        wait = input("")
 
     class Saves(FileSystemEventHandler):
         buffer = None
@@ -24,10 +32,15 @@ try:
         buffer_observer = None
         prev = None
         src_path = None
-        # queue = []
+        multiplier = None
+        static = None
+
+        def __init__(self):
+            self.multiplier = settings["filter_mult"]
+            self.static = settings["filter_static"]
 
         def on_created(self, event):
-
+            # print("New world created", self.src_path)
             if self.sessionStart == None:
                 self.sessionStart = datetime.now()
 
@@ -35,21 +48,41 @@ try:
                 self.buffer.stop()
                 self.buffer_observer.stop()
                 if self.buffer.stats.getRun()[0] != None:
-                    # print(self.buffer.path)
-                    try:
-                        push_data(self.buffer.getRun() + [self.getSeed()])
-                    except Exception as e:
-                        print("Failed to push data, will still continue")
-                        print(e)
-                    # new_queue = []
-                    # for i in range(0, len(self.queue)):
-                    #     try:
-                    #         push_data(self.queue[i])
-                    #     except:
-                    #         print("failed to push", self.queue[i])
-                    #         print("will try again next time")
-                    #         new_queue.append(self.queue[i])
-                    # self.queue = new_queue
+                    data = (
+                        [str(datetime.now())] + self.buffer.getRun() + [self.getSeed()]
+                    )
+                    # add_data to csv
+
+                    h, m, s = data[1].split(":")
+                    seconds = int(h) * 3600 + int(m) * 60 + int(s)
+                    # print("Seconds", seconds)
+
+                    if seconds > ((data[10] / 20) * self.multiplier) or seconds > (
+                        (data[10] / 20) + self.static
+                    ):
+                        temp = data[1]
+                        data[1] = "0:" + str(
+                            time.strftime("%M:%S", time.gmtime(data[10] / 20))
+                        )
+                        print(
+                            "Reverted playtime of",
+                            temp,
+                            "to",
+                            data[1],
+                            "because difference between igt and rta was too large",
+                        )
+                        data.append("M")
+
+                        # print("Reverted time to be based off of igt")
+                    print(data[1:10])
+                    with open(statsCsv, "r") as infile:
+                        reader = list(csv.reader(infile))
+                        reader.insert(0, data)
+
+                    with open(statsCsv, "w", newline="") as outfile:
+                        writer = csv.writer(outfile)
+                        for line in reader:
+                            writer.writerow(line)
 
             self.buffer_observer = None
 
@@ -84,34 +117,44 @@ try:
             return seed
 
     if __name__ == "__main__":
-        try:
-            settings_file = open("settings.json")
-            settings = json.load(settings_file)
+        if settings["instances"] != len(settings["path"]):
+            settings["instances"] = int(input("How many instances are you using? "))
+            settings["path"] = [None] * settings["instances"]
+            for i in range(settings["instances"]):
+                settings["path"][i] = input(
+                    "Path to saves directory for instance " + str(i + 1) + ": "
+                )
+            settings_file = open("settings.json", "w")
+            json.dump(settings, settings_file)
             settings_file.close()
-        except Exception as e:
-            print(e)
-            print(
-                "Could not find settings.json, make sure you have the file in the same directory as the exe, and named exactly 'settings.json'"
-            )
-            wait = input("")
-
-        path = settings["path"]
-        event_handler = Saves()
-        savesObserver = Observer()
-        savesObserver.schedule(event_handler, path, recursive=False)
-        initialize_session()
 
         while True:
             try:
-                savesObserver.schedule(event_handler, settings["path"], recursive=False)
+                savesObserver = Observer()
+                for dir in settings["path"]:
+                    event_handler = Saves()
+                    savesObserver.schedule(event_handler, dir, recursive=False)
+                    print("tracking: ", dir)
                 savesObserver.start()
+                print("Started")
             except Exception as e:
-                settings["path"] = input("Path to saves directory:")
+                print("One of the saves directories could not be found")
+                for i in range(settings["instances"]):
+                    settings["path"][i] = input(
+                        "Path to saves directory for instance " + str(i + 1) + ": "
+                    )
                 settings_file = open("settings.json", "w")
                 json.dump(settings, settings_file)
                 settings_file.close()
             else:
                 break
+        setup()
+        t = threading.Thread(
+            target=main, name="sheets"
+        )  # < Note that I did not actually call the function, but instead sent it as a parameter
+        t.daemon = True
+        t.start()  # < This actually starts the thread execution in the background
+
         print("Tracking...")
         print("Type 'quit' when you are done")
         live = True
@@ -125,22 +168,13 @@ try:
                 if (val == "help") or (val == "?"):
                     print("there is literally one other command and it's quit")
                 if (val == "stop") or (val == "quit"):
-                    print("Stopping...")
-                    try:
-                        push_data(
-                            event_handler.buffer.getRun() + [event_handler.getSeed()]
-                        )
-                    except:
-                        pass
                     live = False
                 time.sleep(1)
-
         finally:
             savesObserver.stop()
             savesObserver.join()
 
-
 except Exception as e:
     print("Unexpected error please send to TheTalkingMime#4431 for help")
     traceback.print_exc()
-    wait = input("")
+    input("")
